@@ -21,7 +21,7 @@ pub fn require_pause_or_emergency_pause_admin_or_owner(e: &Env, address: &Addres
     let access_control = AccessControl::new(e);
     let _ = access_control.address_has_role(address, &Role::PauseAdmin)
         || access_control.address_has_role(address, &Role::EmergencyPauseAdmin)
-        || access_control.address_has_role(address, &Role::Admin)
+        || access_control.address_has_role(address, &Role::Admin) //@audit why are all these checking for admin and not owner?
         || panic_with_error!(e, AccessControlError::Unauthorized);
 }
 

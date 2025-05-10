@@ -39,7 +39,8 @@ impl StorageTrait for AccessControl {
             Role::RewardsAdmin => DataKey::Operator,
             Role::OperationsAdmin => DataKey::OperationsAdmin,
             Role::PauseAdmin => DataKey::PauseAdmin,
-            Role::EmergencyPauseAdmin => DataKey::EmPauseAdmins,
+            Role::EmergencyPauseAdmin => DataKey::EmPauseAdmins, 
+            //i: why is there no panic_with_error here => should revert if wrong role is given
         }
     }
 

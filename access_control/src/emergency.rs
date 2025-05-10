@@ -10,7 +10,7 @@ pub fn get_emergency_mode(e: &Env) -> bool {
         .unwrap_or(false)
 }
 
-pub fn set_emergency_mode(e: &Env, value: &bool) {
+pub fn set_emergency_mode(e: &Env, value: &bool) {//i: can not be called directly => access control before internal call
     bump_instance(e);
     e.storage().instance().set(&DataKey::EmergencyMode, value);
 }

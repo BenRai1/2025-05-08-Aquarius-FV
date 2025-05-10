@@ -36,7 +36,7 @@ impl SingleAddressManagementTrait for AccessControl {
             }
         }
 
-        match self.get_role_safe(role) {
+        match self.get_role_safe(role) { //i: this is never reached for other roles than admin becasue it reverts before
             Some(address) => address,
             None => panic_with_error!(&self.0, AccessControlError::RoleNotFound),
         }
@@ -58,6 +58,7 @@ impl SingleAddressManagementTrait for AccessControl {
         bump_instance(&self.0);
         self.0.storage().instance().set(&key, address);
     }
+
 }
 
 impl MultipleAddressesManagementTrait for AccessControl {
@@ -67,7 +68,7 @@ impl MultipleAddressesManagementTrait for AccessControl {
         }
 
         let key = self.get_key(role);
-        bump_instance(&self.0);
+        bump_instance(&self.0); //@audit why bump here?
         self.0
             .storage()
             .instance()
@@ -85,4 +86,5 @@ impl MultipleAddressesManagementTrait for AccessControl {
         bump_instance(&self.0);
         self.0.storage().instance().set(&key, addresses);
     }
+    
 }

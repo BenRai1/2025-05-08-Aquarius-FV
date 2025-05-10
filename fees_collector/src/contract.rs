@@ -26,13 +26,16 @@ impl AdminInterface for FeesCollector {
     // # Arguments
     //
     // * `account` - The address of the admin user.
+    //@audit any restrictions who can call this? 
+    //i: can only be called once since then, the admin is set and it will revert
+
     fn init_admin(e: Env, account: Address) {
         let access_control = AccessControl::new(&e);
         if access_control.get_role_safe(&Role::Admin).is_some() {
             panic_with_error!(&e, AccessControlError::AdminAlreadySet);
         }
         access_control.set_role_address(&Role::Admin, &account);
-        #[cfg(feature = "certora")]
+        #[cfg(feature = "certora")]//i: added by certora
         unsafe {
             ACCESS_CONTROL = Some(access_control.clone());
         }
@@ -66,7 +69,7 @@ impl UpgradeableContract for FeesCollector {
         UpgradeEvents::new(&e).commit_upgrade(Vec::from_array(&e, [new_wasm_hash.clone()]));
     }
 
-    // Applies the committed upgrade.
+    // Applies the committed upgrade. //i: there is a delay time between commit and upgrade
     //
     // # Arguments
     //
@@ -125,6 +128,7 @@ impl UpgradeableContract for FeesCollector {
     fn get_emergency_mode(e: Env) -> bool {
         get_emergency_mode(&e)
     }
+    
 }
 
 // The `TransferableContract` trait provides the interface for transferring ownership of the contract.
@@ -206,4 +210,5 @@ impl TransferableContract for FeesCollector {
             _ => access_control.get_future_address(&role),
         }
     }
+    
 }

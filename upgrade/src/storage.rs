@@ -4,7 +4,7 @@ use utils::bump::bump_instance;
 #[derive(Clone)]
 #[contracttype]
 enum DataKey {
-    UpgradeDeadline,
+    UpgradeDeadline, 
     FutureWASM,
 }
 

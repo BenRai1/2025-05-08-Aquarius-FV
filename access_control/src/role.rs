@@ -19,7 +19,7 @@ impl Role {
             Role::RewardsAdmin => false,
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
-            Role::EmergencyPauseAdmin => true,
+            Role::EmergencyPauseAdmin => true, //@audit panic_with_error missing //i: will panic when no match
         }
     }
 
@@ -30,7 +30,7 @@ impl Role {
             Role::RewardsAdmin => false,
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
-            Role::EmergencyPauseAdmin => false,
+            Role::EmergencyPauseAdmin => false, //@audit panic_with_error missing //i: will panic when no match
         }
     }
 }
@@ -48,7 +48,7 @@ impl SymbolRepresentation for Role {
             Role::RewardsAdmin => Symbol::new(&e, "RewardsAdmin"),
             Role::OperationsAdmin => Symbol::new(&e, "OperationsAdmin"),
             Role::PauseAdmin => Symbol::new(&e, "PauseAdmin"),
-            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"),
+            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"), //@audit panic_with_error missing //i: will panic when no match
         }
     }
 
