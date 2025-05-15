@@ -206,6 +206,7 @@ impl TransferableContract for FeesCollector {
             0 => match access_control.get_role_safe(&role) {
                 Some(address) => address,
                 None => panic_with_error!(&e, AccessControlError::RoleNotFound),
+                // None => Address::from_str(&e, "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4"), 
             },
             _ => access_control.get_future_address(&role),
         }

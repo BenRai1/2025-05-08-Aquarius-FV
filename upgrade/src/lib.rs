@@ -29,7 +29,7 @@ pub fn commit_upgrade(e: &Env, new_wasm_hash: &BytesN<32>) {
 
     let deadline = e.ledger().timestamp() + UPGRADE_DELAY;
     put_upgrade_deadline(e, &deadline);
-    // put_future_wasm(e, &new_wasm_hash);
+    put_future_wasm(e, &new_wasm_hash);
 }
 
 pub fn apply_upgrade(e: &Env) -> BytesN<32> {
@@ -58,11 +58,5 @@ pub fn revert_upgrade(e: &Env) {
     put_upgrade_deadline(e, &0); 
 }
 
-// // In the upgrade module
-// // #[cfg(feature = "certora")]//@audit
-// pub fn get_upgrade_deadline_public(env: &Env) -> u64 {
-//     let deadline = get_upgrade_deadline(env);
-//     // You can return or use the deadline as needed
-//     deadline
-// }
+
 

@@ -35,10 +35,12 @@ impl SingleAddressManagementTrait for AccessControl {
                 panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
             }
         }
+        
 
         match self.get_role_safe(role) { //i: this is never reached for other roles than admin becasue it reverts before
             Some(address) => address,
             None => panic_with_error!(&self.0, AccessControlError::RoleNotFound),
+        
         }
     }
 
@@ -68,7 +70,9 @@ impl MultipleAddressesManagementTrait for AccessControl {
         }
 
         let key = self.get_key(role);
-        bump_instance(&self.0); //@audit why bump here?
+        //i: bump instance to  updating its expiration ledger sequence. 
+        // => this prevents the contract from being garbage collected
+        bump_instance(&self.0); 
         self.0
             .storage()
             .instance()
@@ -78,7 +82,7 @@ impl MultipleAddressesManagementTrait for AccessControl {
 
     // no delay-related code as we require it only for single addresses roles
     fn set_role_addresses(&self, role: &Role, addresses: &Vec<Address>) {
-        if !role.has_many_users() || role.is_transfer_delayed() {
+        if !role.has_many_users() || role.is_transfer_delayed() { //@audit-issue I dont have a rule which would chatch changes here because there is only one role (checkncloaser)
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 

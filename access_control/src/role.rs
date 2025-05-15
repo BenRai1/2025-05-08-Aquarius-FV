@@ -1,7 +1,12 @@
 use crate::errors::AccessControlError;
 use soroban_sdk::{panic_with_error, Env, Symbol};
 
-#[derive(Clone)]
+// #[cfg(not(feature = "certora"))]
+// #[derive(Clone)] 
+
+// #[cfg(feature = "certora")]
+#[derive(Clone, PartialEq)]
+
 pub enum Role {
     Admin,
     EmergencyAdmin,
@@ -23,14 +28,16 @@ impl Role {
         }
     }
 
-    pub(crate) fn is_transfer_delayed(&self) -> bool {
+
+    pub fn is_transfer_delayed(&self) -> bool { 
+    // pub(crate) fn is_transfer_delayed(&self) -> bool { //@audit changed
         match self {
             Role::Admin => true,
             Role::EmergencyAdmin => true,
-            Role::RewardsAdmin => false,
+            Role::RewardsAdmin => false, //@audit-issue make sure to write rules to catch change here
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
-            Role::EmergencyPauseAdmin => false, //@audit panic_with_error missing //i: will panic when no match
+            Role::EmergencyPauseAdmin => false, 
         }
     }
 }
@@ -43,12 +50,12 @@ pub trait SymbolRepresentation {
 impl SymbolRepresentation for Role {
     fn as_symbol(&self, e: &Env) -> Symbol {
         match self {
-            Role::Admin => Symbol::new(&e, "Admin"),
+            Role::Admin => Symbol::new(&e, "Admin"),  //@audit-issue rules do not work for Role::Admin (index 0 in enum??)
             Role::EmergencyAdmin => Symbol::new(&e, "EmergencyAdmin"),
             Role::RewardsAdmin => Symbol::new(&e, "RewardsAdmin"),
             Role::OperationsAdmin => Symbol::new(&e, "OperationsAdmin"),
-            Role::PauseAdmin => Symbol::new(&e, "PauseAdmin"),
-            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"), //@audit panic_with_error missing //i: will panic when no match
+            Role::PauseAdmin => Symbol::new(&e, "PauseAdmin"), 
+            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"), //i: will panic when no match
         }
     }
 

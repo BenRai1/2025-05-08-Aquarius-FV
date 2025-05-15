@@ -9,6 +9,10 @@ rust-version.workspace = true
 crate-type = ["rlib"]
 doctest = false
 
+
+[features]
+certora = []
+
 [dependencies]
 soroban-sdk = { workspace = true }
 utils = { workspace = true }
