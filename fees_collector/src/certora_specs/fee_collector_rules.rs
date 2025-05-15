@@ -10,7 +10,7 @@ use cvlr_soroban_derive::rule;
 use crate::certora_specs::util as utils;
 pub use crate::contract::FeesCollector;
 pub use access_control::access::AccessControl;
-use access_control::role::Role;
+use access_control::role::{self, Role};
 use upgrade;
 
 use crate::interface::AdminInterface;
@@ -36,10 +36,6 @@ use soroban_sdk::Symbol;
     }
 
 
-
-
-
-   
     
     // get_future_address(): returns the future address if shedule is set //@audit continue here
     #[rule]
@@ -55,11 +51,195 @@ use soroban_sdk::Symbol;
     
     // get_future_address(): returns the set address if there is no transfer scheduled
 
+    
+    // get_future_address(): reverts if role is not Admin or EmergancyAdmin
+    // #[rule]
+    // fn get_future_address_reverts_if_role_not_admin_or_emergency_admin(e: Env,) {
+    //     let role:str;
+    //     let role_name: Symbol = Symbol::new(&e, "EmergencyAdmin");
+    //     cvlr_assume!(role_name != "Admin" && role_name != "EmergencyAdmin");
+    //     FeesCollector::get_future_address(e.clone(), role);
+    //     cvlr_assert!(false); // should not reach and therefore should pass
+    // }
+
+
+    
+
+    // from_symbol(): must pass for all symbols
+    #[rule]
+    fn from_symbol_works_for_all_symbols(e: Env) {
+        let mut symbol = Symbol::new(&e, "Admin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "EmergencyAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "RewardsAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "OperationsAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "PauseAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "EmergencyPauseAdmin");
+        Role::from_symbol(&e, symbol);
+        cvlr_satisfy!(true);
+    }
+
+
 
     
     
 
     
+
+  
+
+   
+//------------------------------- RULES TEST END ----------------------------------
+
+
+
+//------------------------------- RULES OK START ------------------------------------
+   
+   
+    // commit_transfer_ownership(): sets future_admin to new_address
+    #[rule]
+    fn commit_transfer_ownership_set_future_address(e: Env) {
+    
+        let new_address: Address = nondet_address();
+        let admin: Address = nondet_address();
+        // check for Admin or EmergencyAdmin
+        let value = cvlr::nondet();
+        let role_name: Symbol;
+        if value { role_name = Symbol::new(&e, "EmergencyAdmin")} else { role_name = Symbol::new(&e, "Admin")};
+        
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
+        // FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone()); 
+        cvlr_assert!(future_address == new_address); 
+    }
+    
+    // commit_transfer_ownership(): reverts if transfer_ownership_deadline already set
+    #[rule]
+    fn commit_transfer_ownership_reverts_if_deadline_set(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assume!(deadline != 0);
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // commit_transfer_ownership(): sets transfer_ownership_deadline to timestamp() + ADMIN_ACTIONS_DELAY;
+    #[rule]
+    fn commit_transfer_ownership_sets_deadline(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        let target_deadline = e.ledger().timestamp() + ADMIN_ACTIONS_DELAY;
+        cvlr_assert!(deadline == target_deadline); // should not reach and therefore should pass
+    }
+    
+    // commit_transfer_ownership(): reverts if role has many_users
+    #[rule]
+    fn commit_transfer_ownership_reverts_many_users(e: Env, new_address: Address, admin: Address , role_name: Symbol){
+        let role = Role::from_symbol(&e, role_name.clone());
+        let has_many_users = role.has_many_users();
+        cvlr_assume!(has_many_users == true);
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // commit_transfer_ownership(): reverts if role has no transfer_delay
+    #[rule]
+    fn commit_transfer_ownership_reverts_if_no_transfer_delay(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        let role = Role::from_symbol(&e, role_name.clone());
+        let has_transfer_delay = role.is_transfer_delayed();
+        cvlr_assume!(has_transfer_delay == false);
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // commit_transfer_ownership(): must work for Admin and EmergencyAdmin
+    #[rule]
+    fn commit_transfer_ownership_works_for_admin_and_emergency_admin(e: Env, admin: Address, new_address: Address) {
+        let mut role_name = Symbol::new(&e, "Admin");
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        role_name = Symbol::new(&e, "EmergencyAdmin");
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_satisfy!(true); // should not reach and therefore should pass
+    }
+
+    // commit_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
+    #[rule]
+    fn commit_transfer_ownership_reverts_not_admin_or_emergency_admin(e: Env) {
+        let role_name = utils::nondet_symbol(&e);
+        cvlr_assume!(role_name != Symbol::new(&e, "Admin") && role_name != Symbol::new(&e, "EmergencyAdmin"));
+        let admin = nondet_address();
+        let new_address: Address = nondet_address();
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_assert!(false); 
+    }
+    
+    // commit_transfer_ownership(): reverts if adminAddress does not have adminRole
+    #[rule]
+    fn commit_transfer_ownership_reverts_if_no_admin_role(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        cvlr_assume!(!utils::is_role(&admin, &Role::Admin));
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // TRANSFER_OWNERSHIP: once committed, no new commit possibel before applied or cancled
+    #[rule]
+    fn transfer_ownership_reverts_if_already_commited(e: Env) {
+        let new_address: Address = nondet_address();
+        let admin: Address = nondet_address();
+        // check for Admin or EmergencyAdmin
+        let value = cvlr::nondet();
+        let role_name: Symbol;
+        if value { role_name = Symbol::new(&e, "EmergencyAdmin")} else { role_name = Symbol::new(&e, "Admin")};
+        
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
+        cvlr_assert!(false); 
+    }
+    
+    // from_symbol(): reverts if symbol is not in the list
+    #[rule]
+    fn from_symbol_reverts_for_wrong_symbol(e: Env, symbol: Symbol) {
+        //assume symbol is not in the list
+        cvlr_assume!(utils::index_of_symbol(&e, &symbol) == 6);
+        Role::from_symbol(&e, symbol);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // as_symbol(): must pass for all roles
+    #[rule]
+    fn as_symbol_works_for_all_roles(e: Env) {
+        let mut role = Role::Admin;
+        role.as_symbol(&e);
+        role = Role::EmergencyAdmin;
+        role.as_symbol(&e);
+        role = Role::RewardsAdmin;
+        role.as_symbol(&e);
+        role = Role::OperationsAdmin;
+        role.as_symbol(&e);
+        role = Role::PauseAdmin;
+        role.as_symbol(&e);
+        role = Role::EmergencyPauseAdmin;
+        role.as_symbol(&e);
+        cvlr_satisfy!(true);
+    }
+
+    // as_symbol(): fromSymbol => toSymbol => result is starting input
+    #[rule]
+    fn as_symbol_works(e: Env) {
+            let role = utils::nondet_role();
+            let symbol = role.as_symbol(&e);
+            let role2 = Role::from_symbol(&e, symbol);
+            cvlr_assert!(role == role2);
+        }
 
     // TRANSFER_OWNERSHIP: once committed, can only be applied after ADMIN_ACTIONS_DELAY
     #[rule]
@@ -73,145 +253,8 @@ use soroban_sdk::Symbol;
         
         FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address);
         FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
-        // FeesCollector::get_future_address(e.clone(), role_name.clone()); //@audit-issue test if this breakes it (works with the normal conf without loops)
         cvlr_satisfy!(true); 
     }
-    
-    
-    // TRANSFER_OWNERSHIP: once committed, no new commit possibel before applied or cancled
-    
-    // commit_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
-    
-    // commit_transfer_ownership(): reverts if caller is not adminAddress
-    
-    // commit_transfer_ownership(): reverts if adminAddress does not have adminRole
-    
-    // commit_transfer_ownership(): reverts if adminRole has no transfer_delay
-    
-    // commit_transfer_ownership(): reverts if adminRole has many_users
-    
-    // commit_transfer_ownership(): reverts if transfer_ownership_deadline already set
-    
-    // commit_transfer_ownership(): sets transfer_ownership_deadline to timestamp() + ADMIN_ACTIONS_DELAY;
-    
-    // commit_transfer_ownership(): sets future_admin to new_address
-
-
-    
-    // get_future_address(): reverts if role is not Admin or EmergancyAdmin
-    // #[rule]
-    // fn get_future_address_reverts_if_role_not_admin_or_emergency_admin(e: Env,) {
-    //     let role:str;
-    //     let role_name: Symbol = Symbol::new(&e, "EmergencyAdmin");
-    //     cvlr_assume!(role_name != "Admin" && role_name != "EmergencyAdmin");
-    //     FeesCollector::get_future_address(e.clone(), role);
-    //     cvlr_assert!(false); // should not reach and therefore should pass
-    // }
-
-    //------------------------------------------------------------------------------------------------------------
-
-        // as_symbol(): simple call
-        #[rule]
-        fn from_symbol_simple_call(e: Env) {
-            let symbol = Symbol::new(&e, "Admin");
-            Role::from_symbol(&e, symbol);
-            cvlr_satisfy!(true); 
-        }
-
-        // as_symbol(): possible to call this with Role::Admin
-        #[rule]
-        fn as_symbol_works_test(e: Env) {
-            let role = utils::nondet_role();
-            cvlr_assume!(role == Role::Admin);
-            // let role = Role::Admin;
-            let symbol = role.as_symbol(&e);
-            // let role2 = Role::from_symbol(&e, symbol); //@audit-issue this rewerts for admin but not for the rest
-            // let name = symbol_as_string(&e, &symbol);
-            // clog!("symbol_name: {}", name);
-            // cvlr_assert!(role == role2);
-            cvlr_satisfy!(true); 
-        }
-    
-    // as_symbol(): works simple
-        #[rule]
-        fn as_symbol_works_simple(e: Env) {
-            let role = utils::nondet_role();
-            //get index of the role
-            let role_index = utils::index_of_role(&role);
-            cvlr_assume!(role == Role::Admin);
-            // let role = Role::Admin;
-            let symbol = role.as_symbol(&e);
-            //get index of the symbol
-            let symbol_index = utils::index_of_symbol(&e, symbol);
-            cvlr_satisfy!(true);
-
-            
-
-            // let role2 = Role::from_symbol(&e, symbol); //@audit-issue this rewerts for admin but not for the rest
-            // let name = symbol_as_string(&e, &symbol);
-            // clog!("symbol_name: {}", name);
-            // cvlr_assert!(role == role2);
-            cvlr_satisfy!(true); 
-        }
-    
-
-        
-
-        // as_symbol(): fromSymbol => toSymbol => result is starting input
-        #[rule]
-        fn as_symbol_works(e: Env) {
-            let role = utils::nondet_role(); //@audit seams like it makes a difference which role is returned. Is the check done from the back?
-            // let role_name = role_as_string(&role);
-            // clog!("role_name: {}", role_name);
-            cvlr_assume!(role == Role::EmergencyAdmin);
-            // let role = Role::PauseAdmin; //@audit direct erzeugen ohne meine function
-            let symbol = role.as_symbol(&e);
-            // clog!("symbol_name: {}", symbol_as_string(&e, &symbol));
-            let role2 = Role::from_symbol(&e, symbol);
-            // cvlr_assert!(role == role2);
-            cvlr_satisfy!(true); // should not reach and therefore should pass//@audit works, so there is at least one as_symbol => from_symbol combination that works
-            // cvlr_assert!(false)
-        }
-
-        // #[rule]
-        // fn as_symbol_works_alt(e: Env) { //@audit-issue does not work at all
-        //     let role = nondet_role();
-        //     let role_index = role_as_index(&role);
-        //     let symbol = role.as_symbol(&e);
-        //     let target_symbol = symbol_from_index(&e, &role_index);
-        //     cvlr_assume!(symbol == target_symbol);
-        // }
-
-
-        
-        
-       
-    
-    
-
-    
-    
-   
-    
-
-    
-    
-
-    
-    
-    
-   
-
-
-
-
-   
-//------------------------------- RULES TEST END ----------------------------------
-
-
-
-//------------------------------- RULES OK START ------------------------------------
-    
 
     // as_symbol(): reverts if symbol is not in the list
     #[rule]

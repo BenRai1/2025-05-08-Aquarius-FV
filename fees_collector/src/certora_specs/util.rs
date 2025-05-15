@@ -79,18 +79,18 @@ use crate::certora_specs::ACCESS_CONTROL;
     }
 
     // get the enum index of the symbol
-    pub fn index_of_symbol(e:&Env, symbol: Symbol) -> i64 {
-        if symbol == Symbol::new(&e, "Admin") {
+    pub fn index_of_symbol(e:&Env, symbol: &Symbol) -> i64 {
+        if symbol == &Symbol::new(&e, "Admin") {
         return 0;
-        } else if symbol == Symbol::new(e, "EmergencyAdmin") {
+        } else if symbol == &Symbol::new(e, "EmergencyAdmin") {
             return 1;
-        } else if symbol == Symbol::new(e, "RewardsAdmin") {
+        } else if symbol == &Symbol::new(e, "RewardsAdmin") {
             return 2;
-        } else if symbol == Symbol::new(e, "OperationsAdmin") {
+        } else if symbol == &Symbol::new(e, "OperationsAdmin") {
             return 3;
-        } else if symbol == Symbol::new(e, "PauseAdmin") {
+        } else if symbol == &Symbol::new(e, "PauseAdmin") {
             return 4;
-        } else if symbol == Symbol::new(e, "EmergencyPauseAdmin") {
+        } else if symbol == &Symbol::new(e, "EmergencyPauseAdmin") {
             return 5;
         }
         6

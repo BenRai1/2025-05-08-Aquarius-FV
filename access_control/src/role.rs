@@ -17,20 +17,20 @@ pub enum Role {
 }
 
 impl Role {
-    pub(crate) fn has_many_users(&self) -> bool {
+    // pub(crate) fn has_many_users(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
+    pub fn has_many_users(&self) -> bool { 
         match self {
             Role::Admin => false,
             Role::EmergencyAdmin => false,
             Role::RewardsAdmin => false,
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
-            Role::EmergencyPauseAdmin => true, //@audit panic_with_error missing //i: will panic when no match
+            Role::EmergencyPauseAdmin => true, 
         }
     }
 
-
     pub fn is_transfer_delayed(&self) -> bool { 
-    // pub(crate) fn is_transfer_delayed(&self) -> bool { //@audit changed
+    // pub(crate) fn is_transfer_delayed(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
         match self {
             Role::Admin => true,
             Role::EmergencyAdmin => true,
@@ -50,7 +50,7 @@ pub trait SymbolRepresentation {
 impl SymbolRepresentation for Role {
     fn as_symbol(&self, e: &Env) -> Symbol {
         match self {
-            Role::Admin => Symbol::new(&e, "Admin"),  //@audit-issue rules do not work for Role::Admin (index 0 in enum??)
+            Role::Admin => Symbol::new(&e, "Admin"),  
             Role::EmergencyAdmin => Symbol::new(&e, "EmergencyAdmin"),
             Role::RewardsAdmin => Symbol::new(&e, "RewardsAdmin"),
             Role::OperationsAdmin => Symbol::new(&e, "OperationsAdmin"),
@@ -73,6 +73,7 @@ impl SymbolRepresentation for Role {
         } else if value == Symbol::new(e, "EmergencyPauseAdmin") {
             return Role::EmergencyPauseAdmin;
         }
+        
         panic_with_error!(e, AccessControlError::BadRoleUsage);
     }
 }
