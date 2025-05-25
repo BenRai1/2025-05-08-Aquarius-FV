@@ -7,7 +7,7 @@ use cvlr::{clog, cvlr_satisfy, nondet};
 use cvlr_soroban::nondet_address;
 use cvlr_soroban_derive::rule;
 
-use crate::certora_specs::util as utils;
+use crate::certora_specs::util as util;
 pub use crate::contract::FeesCollector;
 pub use access_control::access::AccessControl;
 use access_control::role::{self, Role};
@@ -29,7 +29,7 @@ use soroban_sdk::Symbol;
     // apply_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
     #[rule]
     fn apply_transfer_ownership_reverts_not_admin_or_emergency_admin(e: Env) {
-        let role_name = utils::nondet_symbol(&e);
+        let role_name = util::nondet_symbol(&e);
         let admin = nondet_address();
         FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); //@audit-issue normal call does fail with "failed to compute per-call stats"
         cvlr_satisfy!(true); 
@@ -37,16 +37,7 @@ use soroban_sdk::Symbol;
 
 
     
-    // get_future_address(): returns the future address if shedule is set //@audit continue here
-    #[rule]
-    fn get_future_address_returns_future_address_if_scheduled(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
-        //shedule transfer
-        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
-        //call get_future_address
-        //make suer the address is the same
-        cvlr_satisfy!(true);
-        
-    }
+    
     
     
     // get_future_address(): returns the set address if there is no transfer scheduled
@@ -99,6 +90,150 @@ use soroban_sdk::Symbol;
 
 //------------------------------- RULES OK START ------------------------------------
    
+        // get_future_address(): reverts if role is not Admin or EmergancyAdmin
+    #[rule]
+    fn get_future_address_reverts_not_admin_or_emergency_admin(e: Env, role_name: Symbol) {
+        let role = Role::from_symbol(&e, role_name.clone());
+        cvlr_assume!(role != Role::Admin && role != Role::EmergencyAdmin);
+        FeesCollector::get_future_address(e.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // revert_transfer_ownership(): set deadline to 0 for the used role
+    #[rule]
+    fn revert_transfer_ownership_sets_deadline_to_zero(e: Env, admin: Address, role_name: Symbol) {
+        FeesCollector::revert_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assert!(deadline == 0); 
+    }
+
+    // revert_transfer_ownership(): reverts if adminAddress does not have adminRole
+    #[rule]
+    fn revert_transfer_ownership_reverts_if_no_admin_role(e: Env, admin: Address, role_name: Symbol) {
+        cvlr_assume!(!util::is_role(&admin, &Role::Admin));
+        FeesCollector::revert_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+   
+    // apply_transfer_ownership(): sets address to futureAddress
+    #[rule]
+    fn apply_transfer_ownership_sets_adress_to_future_address(e: Env, admin: Address, role_name: Symbol) {
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let future_address = access_control.get_future_address(&role);
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_some());
+        cvlr_assume!(future_address != Option::expect(current_address, "no value"));
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        // get the address
+        let address = util::get_role_address_any_safe(&role);
+        cvlr_assert!(address == Some(future_address));
+    }
+
+    // apply_transfer_ownership(): if role is not set yet, deadline is not respected
+    #[rule]
+    fn apply_transfer_ownership_does_not_respect_deadline_if_role_not_set(e: Env, admin: Address, role_name: Symbol) {
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_none());
+        cvlr_assume!(deadline != 0 && e.ledger().timestamp() < deadline);
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_satisfy!(true); 
+    }
+    
+    // apply_transfer_ownership(): sets transfer_ownership_deadline to 0
+    #[rule]
+    fn apply_transfer_ownership_sets_deadline_to_zero(e: Env, admin: Address, role_name: Symbol) {
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assert!(deadline == 0); 
+    }
+
+    // apply_transfer_ownership(): reverts if dedline has not passed yet
+    #[rule]
+    fn apply_transfer_ownership_reverts_if_deadline_not_passed(e: Env, admin: Address, role_name: Symbol) {
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_some());
+        cvlr_assume!(deadline != 0 && e.ledger().timestamp() < deadline);
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // apply_transfer_ownership(): reverts if transfer_ownership_deadline == 0
+    #[rule]
+    fn apply_transfer_ownership_reverts_if_deadline_zero(e: Env, admin: Address, role_name: Symbol) {
+        // get transfer_ownership_deadline 
+        let role = Role::from_symbol(&e, role_name.clone());
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assume!(deadline == 0);
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+   
+    // apply_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
+    #[rule]
+    fn apply_transfer_ownership_reverts_not_admin_or_eadmin(e: Env, admin: Address, role_name: Symbol) {
+        cvlr_assume!(role_name != Symbol::new(&e, "Admin") && role_name != Symbol::new(&e, "EmergencyAdmin"));
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // apply_transfer_ownership(): reverts if adminAddress does not have adminRole
+    #[rule]
+    fn apply_transfer_ownership_reverts_if_caller_not_admin(e: Env, admin: Address, role_name: Symbol) {
+        let access_control = AccessControl::new(&e);
+        let is_admin = access_control.address_has_role(&admin, &Role::Admin);
+        cvlr_assume!(is_admin == false); 
+        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+     // get_future_address(): returns the set address if there is no transfer scheduled
+    #[rule]
+    fn get_future_address_returns_set_address_if_no_transfer_scheduled(e: Env, role_name: Symbol) {
+        //get the address
+        let role = Role::from_symbol(&e, role_name.clone());
+        let address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(address.is_some());
+        let address = address.unwrap();
+        //make sure that the transfer_ownership_deadline is 0
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assume!(deadline == 0);
+        //call get_future_address
+        let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone());
+        //make sure the address is the same
+        cvlr_assert!(future_address == address);
+        // cvlr_satisfy!(true);
+
+    }
+    
+    // get_future_address(): returns the future address if shedule is set 
+    #[rule]
+    fn get_future_address_returns_future_address_if_scheduled(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        //shedule transfer
+        FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone());
+        //call get_future_address
+        let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone());
+        //make suer the address is the same
+        cvlr_assert!(future_address == new_address);
+    }
+
    
     // commit_transfer_ownership(): sets future_admin to new_address
     #[rule]
@@ -174,7 +309,7 @@ use soroban_sdk::Symbol;
     // commit_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
     #[rule]
     fn commit_transfer_ownership_reverts_not_admin_or_emergency_admin(e: Env) {
-        let role_name = utils::nondet_symbol(&e);
+        let role_name = util::nondet_symbol(&e);
         cvlr_assume!(role_name != Symbol::new(&e, "Admin") && role_name != Symbol::new(&e, "EmergencyAdmin"));
         let admin = nondet_address();
         let new_address: Address = nondet_address();
@@ -185,7 +320,7 @@ use soroban_sdk::Symbol;
     // commit_transfer_ownership(): reverts if adminAddress does not have adminRole
     #[rule]
     fn commit_transfer_ownership_reverts_if_no_admin_role(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
-        cvlr_assume!(!utils::is_role(&admin, &Role::Admin));
+        cvlr_assume!(!util::is_role(&admin, &Role::Admin));
         FeesCollector::commit_transfer_ownership(e.clone(), admin.clone(), role_name.clone(), new_address.clone()); 
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -209,7 +344,7 @@ use soroban_sdk::Symbol;
     #[rule]
     fn from_symbol_reverts_for_wrong_symbol(e: Env, symbol: Symbol) {
         //assume symbol is not in the list
-        cvlr_assume!(utils::index_of_symbol(&e, &symbol) == 6);
+        cvlr_assume!(util::index_of_symbol(&e, &symbol) == 6);
         Role::from_symbol(&e, symbol);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -235,7 +370,7 @@ use soroban_sdk::Symbol;
     // as_symbol(): fromSymbol => toSymbol => result is starting input
     #[rule]
     fn as_symbol_works(e: Env) {
-            let role = utils::nondet_role();
+            let role = util::nondet_role();
             let symbol = role.as_symbol(&e);
             let role2 = Role::from_symbol(&e, symbol);
             cvlr_assert!(role == role2);
@@ -259,7 +394,7 @@ use soroban_sdk::Symbol;
     // as_symbol(): reverts if symbol is not in the list
     #[rule]
     fn as_symbol_reverts_for_wrong_role(e:Env, role: Role){
-        let role_in_scope = utils::assume_role_in_scope(&role);
+        let role_in_scope = util::assume_role_in_scope(&role);
         cvlr_assume!(role_in_scope == 0);
         role.as_symbol(&e);
         // cvlr_assert!(false); // should not reach and therefore should pass 
@@ -271,10 +406,10 @@ use soroban_sdk::Symbol;
     fn get_role_returns_set_admin(e: Env) {
         let access_control = AccessControl::new(&e);
         let admin_role = Role::Admin;
-        let role = utils::nondet_role();
-        let is_set = utils::get_role_address_any_safe(&admin_role).is_some();
+        let role = util::nondet_role();
+        let is_set = util::get_role_address_any_safe(&admin_role).is_some();
         cvlr_assume!(is_set == true);
-        let admin = utils::get_role_address_any_safe(&admin_role).unwrap();
+        let admin = util::get_role_address_any_safe(&admin_role).unwrap();
         let addr = access_control.get_role(&role);
         cvlr_assert!(addr == admin);
     }
@@ -282,7 +417,7 @@ use soroban_sdk::Symbol;
     // get_role(): reverts if admin is not set
     #[rule]
     fn get_role_reverts_if_admin_not_set(e: Env) {
-        let role = utils::nondet_role();
+        let role = util::nondet_role();
         let access_control = AccessControl::new(&e);
         let admin_role = Role::Admin;
         cvlr_assume!(role == Role::Admin);
@@ -295,7 +430,7 @@ use soroban_sdk::Symbol;
     // get_role(): reverts if role is not admin
     #[rule]
     fn get_role_reverts_if_role_not_admin(e: Env) {
-        let role = utils::nondet_role();
+        let role = util::nondet_role();
         let access_control = AccessControl::new(&e);
         cvlr_assume!(role != Role::Admin);
         access_control.get_role(&role);
@@ -305,7 +440,7 @@ use soroban_sdk::Symbol;
    // set_role_addresses(): reverts if wrong role was given
     #[rule]
     fn set_role_addresses_reverts_if_wrong_role(e: Env, addresses: &Vec<Address>) { 
-        let role = utils::nondet_role();
+        let role = util::nondet_role();
         let access_control = AccessControl::new(&e);
         cvlr_assume!(role != Role::EmergencyPauseAdmin);
         access_control.set_role_addresses(&role, addresses);
@@ -316,7 +451,7 @@ use soroban_sdk::Symbol;
     #[rule]
     fn set_role_addresses_reverts_transfer_delay(e: Env, role: Role, addresses: &Vec<Address>) { 
             let access_control = AccessControl::new(&e);
-            let role_in_scope = utils::assume_role_in_scope(&role);
+            let role_in_scope = util::assume_role_in_scope(&role);
             cvlr_assume!(role_in_scope == 1);
             //role has transfer delay
             let role_transfer_delay = role.is_transfer_delayed();
@@ -462,7 +597,7 @@ use soroban_sdk::Symbol;
         let deadline = access_control.get_transfer_ownership_deadline(&role);
         cvlr_assume!(deadline == 0);
         //adminAddress is not set
-        let is_set = utils::get_role_address_any_safe(&role).is_some();
+        let is_set = util::get_role_address_any_safe(&role).is_some();
         cvlr_assume!(is_set == false);
         // //get_future_address() should revert
         FeesCollector::get_future_address(e.clone(), role_name.clone());
@@ -482,7 +617,7 @@ use soroban_sdk::Symbol;
     // set_emergency_mode(): reverts if emergancy_adminAddress does not have the emergancy_adminRole
     #[rule]
     fn set_emergency_mode_reverts_if_not_emergancy_admin(e: Env, emergancy_admin: Address, value: bool) {
-        cvlr_assume!(!utils::is_role(&emergancy_admin, &Role::EmergencyAdmin));
+        cvlr_assume!(!util::is_role(&emergancy_admin, &Role::EmergencyAdmin));
         FeesCollector::set_emergency_mode(e.clone(), emergancy_admin, value);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -490,7 +625,7 @@ use soroban_sdk::Symbol;
     // revert_upgrade(): reverts if adminAddress does not have adminRole
     #[rule]
     fn revert_upgrade_reverts_if_no_admin_role(e: Env, admin: Address) {
-        cvlr_assume!(!utils::is_role(&admin, &Role::Admin));
+        cvlr_assume!(!util::is_role(&admin, &Role::Admin));
         FeesCollector::revert_upgrade(e.clone(), admin);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -549,7 +684,7 @@ use soroban_sdk::Symbol;
     // apply_upgrade(): reverts if adminAddress does not have adminRole
     #[rule]
     fn apply_upgrade_reverts_if_no_admin_role(e: Env, admin: Address) {
-        cvlr_assume!(!utils::is_role(&admin, &Role::Admin));
+        cvlr_assume!(!util::is_role(&admin, &Role::Admin));
         FeesCollector::apply_upgrade(e.clone(), admin);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -590,7 +725,7 @@ use soroban_sdk::Symbol;
     // commit_upgrade(): reverts if adminAddress does not have adminRole
     #[rule]
     fn commit_upgrade_reverts_no_admin_role(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
-        cvlr_assume!(!utils::is_role(&admin, &Role::Admin));
+        cvlr_assume!(!util::is_role(&admin, &Role::Admin));
         FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -631,10 +766,10 @@ use soroban_sdk::Symbol;
     pub fn init_admin_reverts_if_already_set(e: Env) {
         let address = nondet_address();
         clog!(cvlr_soroban::Addr(&address));
-        let is_set = utils::get_role_address_any_safe(&Role::Admin).is_some();
+        let is_set = util::get_role_address_any_safe(&Role::Admin).is_some();
         cvlr_assume!(is_set == true);
 
-        let addr = utils::get_role_address();
+        let addr = util::get_role_address();
         clog!(cvlr_soroban::Addr(&address));
 
         cvlr_assume!(addr == address);
@@ -658,7 +793,7 @@ use soroban_sdk::Symbol;
         let address = nondet_address();
         clog!(cvlr_soroban::Addr(&address));
         FeesCollector::init_admin(e, address.clone());
-        let addr = utils::get_role_address();
+        let addr = util::get_role_address();
         // syntax of how to use `clog!`. This is helpful for calltrace when a rule fails.
         clog!(cvlr_soroban::Addr(&addr));
         cvlr_assert!(addr == address);
@@ -668,7 +803,7 @@ use soroban_sdk::Symbol;
     pub fn only_emergency_admin_sets_emergency_mode(e: Env) {
         let address = nondet_address();
         let value: bool = cvlr::nondet();
-        cvlr_assume!(!utils::is_role(&address, &Role::EmergencyAdmin));
+        cvlr_assume!(!util::is_role(&address, &Role::EmergencyAdmin));
         FeesCollector::set_emergency_mode(e, address, value);
         cvlr_assert!(false); // should not reach and therefore should pass
     }
@@ -736,10 +871,10 @@ use soroban_sdk::Symbol;
         #[rule]
         fn set_role_addresses_reverts_if_role_does_not_have_many_users(e: Env, role: Role, addresses: &Vec<Address>) { //@audit-issue also fails because it interacts with EmergancyPauseAdmin
             let access_control = AccessControl::new(&e);
-            let role_in_scope = utils::assume_role_in_scope(&role);
+            let role_in_scope = util::assume_role_in_scope(&role);
             cvlr_assume!(role_in_scope == 1);
             cvlr_assume!(role != Role::EmergencyPauseAdmin);
-            let role_number = utils::index_of_role(&role);
+            let role_number = util::index_of_role(&role);
             clog!("Role number", role_number);
 
             access_control.set_role_addresses(&role, addresses);
@@ -753,7 +888,7 @@ use soroban_sdk::Symbol;
         // set_role_addresses(): passes for EmergancyPauseAdmin //@audit-issue fails because it interacts with EmergancyPauseAdmin
         #[rule]
         fn set_role_addresses_passes_for_emergancy_paus_admin(e: Env, addresses: &Vec<Address>) { 
-            let role = utils::nondet_role();
+            let role = util::nondet_role();
             let access_control = AccessControl::new(&e);
             cvlr_assume!(role == Role::EmergencyPauseAdmin);
             access_control.set_role_addresses(&role, addresses);
