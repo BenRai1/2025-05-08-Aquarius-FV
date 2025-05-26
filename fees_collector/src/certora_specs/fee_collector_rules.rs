@@ -24,51 +24,28 @@ use access_control::access::{self, AccessControlTrait};
 use access_control::storage::StorageTrait;
 use upgrade::constants::UPGRADE_DELAY;
 use soroban_sdk::Symbol;
+use cvlr::log::cvlr_log;
 
 //------------------------------- RULES TEST START ----------------------------------
 
     
     
-
-
-    
-    // set_role_address(): sets the address for the right role
-    
-    // set_role_address(): always works for rewardsAdmin
+     // set_role_address(): works for EmergancyAdmin if not set
     #[rule]
-    // fn set_role_address_works_for_rewards_admin(e: Env, role: Role, address: Address) {
-    fn set_role_address_works_for_rewards_admin(e: Env, address: Address) {
-        let role = Role::RewardsAdmin;
-        clog!("Role index", &util::get_index_for_role(&role));
-        // cvlr_assume!(role == Role::RewardsAdmin);
-        // call
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_address(&role, &address);
-        // get the address
-        let role_address = util::get_role_address_any_safe(&role);
-        // cvlr_satisfy!(true);
-        cvlr_assert!(false); //@audit comes through => address can be set
-    }
-
-    //set_role_address(): always works for OperationsAdmin
-    #[rule]
-    fn set_role_address_works_for_operations_admin(e: Env, role: Role, address: Address) {
-        cvlr_assume!(role == Role::OperationsAdmin);
-        // call
+    fn set_role_address_works_for_emergancy_admin_if_not_set(e: Env, role: Role, address: Address) { //@audit-issue mutation deos not work even though it works for Admin
+        //assume role is EmergencyAdmin
+        cvlr_assume!(role == Role::EmergencyAdmin);
+        //assume the address is not set
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_none());
+        //call
         let access_control = AccessControl::new(&e);
         access_control.set_role_address(&role, &address);
         // get the address
         let role_address = util::get_role_address_any_safe(&role);
         cvlr_satisfy!(role_address == Some(address));
-    } 
-
-    //set_role_address(): always works for  PauseAdmin
-
+    }
     
-    
-    // set_role_address(): works for Admin and EmergancyAdmin if they are not set
-    
-    // set_role_address(): works for Admin and EmergancyAdmin if the deadline has passed
 
 
 
@@ -85,6 +62,85 @@ use soroban_sdk::Symbol;
 
 //------------------------------- RULES OK START ------------------------------------
     
+    // apply_upgrade(): returns new_wasm_hash
+    #[rule]
+    fn apply_upgrade_returns_new_wasm(e: Env, admin: Address) {
+        let future_wasm = upgrade::storage::get_future_wasm(&e);
+        let return_value = FeesCollector::apply_upgrade(e.clone(), admin);
+        cvlr_assert!(future_wasm == Some(return_value));
+    }
+    
+    // set_role_address(): works for Admin not set
+    #[rule]
+    fn set_role_address_works_for_admin_if_not_set(e: Env, role: Role, address: Address) {
+        //assume role is admin
+        cvlr_assume!(role == Role::Admin);
+        //assume the address is not set
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_none());
+        //call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    }
+
+    //set_role_address(): always works for OperationsAdmin //@audit continnue here!!
+    #[rule]
+    fn set_role_address_works_for_operations_admin(e: Env, role: Role, address: Address) {
+        //assume the address is already set
+        let current_address = util::get_role_address_any_safe(&Role::OperationsAdmin);
+        cvlr_assume!(current_address == Some(address.clone()));
+        //assume the role is OperationsAdmin
+        cvlr_assume!(role == Role::OperationsAdmin);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    } 
+
+    //set_role_address(): always works for PauseAdmin
+    #[rule]
+    fn set_role_address_works_for_pause_admin(e: Env, role: Role, address: Address) {
+        //assume the address is already set
+        let current_address = util::get_role_address_any_safe(&Role::PauseAdmin);
+        cvlr_assume!(current_address == Some(address.clone()));
+        //assume the role is PauseAdmin
+        cvlr_assume!(role == Role::PauseAdmin);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    }
+
+    // set_role_address(): always works for rewardsAdmin
+    #[rule]
+    fn set_role_address_works_for_rewards_admin(e: Env, address: Address) { 
+        let current_address = util::get_role_address_any_safe(&Role::RewardsAdmin);
+        cvlr_assume!(current_address == Some(address.clone()));
+        let role = Role::RewardsAdmin;
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    }
+
+    // set_role_address(): sets the right address for the right role
+    #[rule]
+    fn set_role_address_sets_right_address(e: Env, address: Address, role: Role){
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        let final_address = util::get_role_address_any_safe(&role);
+        cvlr_assert!(address == Option::expect(final_address, "no address"));
+    }
+
     // set_role_address(): reverts if admin/emergancyAdmin are already set
     #[rule]
     fn set_role_address_reverts_if_already_set(e: Env, role: Role, address: Address){
@@ -325,7 +381,6 @@ use soroban_sdk::Symbol;
         cvlr_assert!(future_address == new_address);
     }
 
-   
     // commit_transfer_ownership(): sets future_admin to new_address
     #[rule]
     fn commit_transfer_ownership_set_future_address(e: Env) {
