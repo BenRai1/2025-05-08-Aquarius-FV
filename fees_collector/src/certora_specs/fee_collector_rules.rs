@@ -20,66 +20,61 @@ use access_control::transfer::TransferOwnershipTrait;
 use access_control::management::SingleAddressManagementTrait;
 use access_control::management::MultipleAddressesManagementTrait;
 use access_control::role::SymbolRepresentation;
-use access_control::access::AccessControlTrait;
+use access_control::access::{self, AccessControlTrait};
+use access_control::storage::StorageTrait;
 use upgrade::constants::UPGRADE_DELAY;
 use soroban_sdk::Symbol;
 
 //------------------------------- RULES TEST START ----------------------------------
 
-    // apply_transfer_ownership(): reverts if role is not Admin or EmergancyAdmin
+    
+    
+
+
+    
+    // set_role_address(): sets the address for the right role
+    
+    // set_role_address(): always works for rewardsAdmin
     #[rule]
-    fn apply_transfer_ownership_reverts_not_admin_or_emergency_admin(e: Env) {
-        let role_name = util::nondet_symbol(&e);
-        let admin = nondet_address();
-        FeesCollector::apply_transfer_ownership(e.clone(), admin.clone(), role_name.clone()); //@audit-issue normal call does fail with "failed to compute per-call stats"
-        cvlr_satisfy!(true); 
+    // fn set_role_address_works_for_rewards_admin(e: Env, role: Role, address: Address) {
+    fn set_role_address_works_for_rewards_admin(e: Env, address: Address) {
+        let role = Role::RewardsAdmin;
+        clog!("Role index", &util::get_index_for_role(&role));
+        // cvlr_assume!(role == Role::RewardsAdmin);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        // cvlr_satisfy!(true);
+        cvlr_assert!(false); //@audit comes through => address can be set
     }
 
-
-    
-    
-    
-    
-    // get_future_address(): returns the set address if there is no transfer scheduled
-
-    
-    // get_future_address(): reverts if role is not Admin or EmergancyAdmin
-    // #[rule]
-    // fn get_future_address_reverts_if_role_not_admin_or_emergency_admin(e: Env,) {
-    //     let role:str;
-    //     let role_name: Symbol = Symbol::new(&e, "EmergencyAdmin");
-    //     cvlr_assume!(role_name != "Admin" && role_name != "EmergencyAdmin");
-    //     FeesCollector::get_future_address(e.clone(), role);
-    //     cvlr_assert!(false); // should not reach and therefore should pass
-    // }
-
-
-    
-
-    // from_symbol(): must pass for all symbols
+    //set_role_address(): always works for OperationsAdmin
     #[rule]
-    fn from_symbol_works_for_all_symbols(e: Env) {
-        let mut symbol = Symbol::new(&e, "Admin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "EmergencyAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "RewardsAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "OperationsAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "PauseAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "EmergencyPauseAdmin");
-        Role::from_symbol(&e, symbol);
-        cvlr_satisfy!(true);
-    }
+    fn set_role_address_works_for_operations_admin(e: Env, role: Role, address: Address) {
+        cvlr_assume!(role == Role::OperationsAdmin);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    } 
 
-
+    //set_role_address(): always works for  PauseAdmin
 
     
     
-
+    // set_role_address(): works for Admin and EmergancyAdmin if they are not set
     
+    // set_role_address(): works for Admin and EmergancyAdmin if the deadline has passed
+
+
+
+   
+    
+
 
   
 
@@ -89,8 +84,104 @@ use soroban_sdk::Symbol;
 
 
 //------------------------------- RULES OK START ------------------------------------
-   
-        // get_future_address(): reverts if role is not Admin or EmergancyAdmin
+    
+    // set_role_address(): reverts if admin/emergancyAdmin are already set
+    #[rule]
+    fn set_role_address_reverts_if_already_set(e: Env, role: Role, address: Address){
+        cvlr_assume!(role == Role::Admin || role == Role::EmergencyAdmin);
+        // role is already set
+        let is_set = util::get_role_address_any_safe(&role).is_some();
+        cvlr_assume!(is_set);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // set_role_address(): reverts if role is_some and has transfer_delay
+    #[rule]
+    fn set_role_address_reverts_if_some_and_delay(e: Env, role: Role, address: Address) {
+        // role has transfer delay
+        let has_transfer_delay = role.is_transfer_delayed();
+        cvlr_assume!(has_transfer_delay);
+        //role is already set
+        let is_set = util::get_role_address_any_safe(&role).is_some();
+        cvlr_assume!(is_set);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // set_role_address(): reverts if role has multiple users
+    #[rule]
+    fn set_role_address_reverts_if_multiple_users(e: Env, role: Role, address: Address) {
+        // role has multiple users
+        let has_many_users = role.has_many_users();
+        cvlr_assume!(has_many_users);
+        // call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // set_role_address(): reverts for EmergancyPauseAdmin
+    #[rule]
+    fn set_role_address_reverts_for_emergancypauseadmin(e: Env, role: Role, address: Address){
+        cvlr_assume!(role == Role::EmergencyPauseAdmin);
+        //call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // get_future_deadline_key(): reverts if role is not Admin or EmergancyAdmin
+    #[rule]
+    fn get_future_deadline_key_reverts_not_admin_or_emergency_admin(e: Env, role: Role) {
+        cvlr_assume!(role != Role::Admin && role != Role::EmergencyAdmin);
+        let access_control = AccessControl::new(&e);
+        access_control.get_future_deadline_key(&role); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // get_future_deadline_key(): returns the right key for the given role
+    #[rule]
+    fn get_future_deadline_key_returns_right_key(e: Env, role: Role) {
+        cvlr_assume!(role == Role::Admin || role == Role::EmergencyAdmin);
+        let access_control = AccessControl::new(&e);
+        let key = access_control.get_future_deadline_key(&role);
+        let expected_key = if role == Role::Admin {
+            access_control::storage::DataKey::TransferOwnershipDeadline
+        } else {
+            access_control::storage::DataKey::EmAdminTransferOwnershipDeadline
+        };
+        cvlr_assert!(key == expected_key);
+    }
+
+    // get_future_key(): reverts if role is not Admin or EmergancyAdmin
+    #[rule]
+    fn get_future_key_reverts_not_admin_or_emergency_admin(e: Env, role: Role) {
+        cvlr_assume!(role != Role::Admin && role != Role::EmergencyAdmin);
+        let access_control = AccessControl::new(&e);
+        access_control.get_future_key(&role); 
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // get_future_key(): returns the right key for the given role
+    #[rule]
+    fn get_future_key_returns_right_key(e: Env, role: Role) {
+        cvlr_assume!(role == Role::Admin || role == Role::EmergencyAdmin);
+        let access_control = AccessControl::new(&e);
+        let key = access_control.get_future_key(&role);
+        let expected_key = if role == Role::Admin {
+            access_control::storage::DataKey::FutureAdmin
+        } else {
+            access_control::storage::DataKey::FutureEmergencyAdmin
+        };
+        cvlr_assert!(key == expected_key);
+    }
+
+    // get_future_address(): reverts if role is not Admin or EmergancyAdmin
     #[rule]
     fn get_future_address_reverts_not_admin_or_emergency_admin(e: Env, role_name: Symbol) {
         let role = Role::from_symbol(&e, role_name.clone());
@@ -894,5 +985,23 @@ use soroban_sdk::Symbol;
             access_control.set_role_addresses(&role, addresses);
             cvlr_satisfy!(true); // should not reach and therefore should pass
         }
+
+        fn from_symbol_works_for_all_symbols(e: Env) { //@audit times out, might need to split up
+        let mut symbol = Symbol::new(&e, "Admin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "EmergencyAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "RewardsAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "OperationsAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "PauseAdmin");
+        Role::from_symbol(&e, symbol);
+        symbol = Symbol::new(&e, "EmergencyPauseAdmin");
+        Role::from_symbol(&e, symbol);
+        cvlr_satisfy!(true);
+    }
+
+
 
 //------------------------------- RULES PROBLEMS END ----------------------------------

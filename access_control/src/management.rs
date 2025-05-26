@@ -4,6 +4,7 @@ use crate::role::Role;
 use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address, Vec};
 use utils::bump::bump_instance;
+// use cvlr::{clog, cvlr_satisfy, nondet};//@audit added for certora
 
 pub trait SingleAddressManagementTrait {
     fn get_role_safe(&self, role: &Role) -> Option<Address>;
@@ -19,7 +20,7 @@ pub trait MultipleAddressesManagementTrait {
 impl SingleAddressManagementTrait for AccessControl {
     fn get_role_safe(&self, role: &Role) -> Option<Address> {
         if role.has_many_users() {
-            panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
+            panic_with_error!(&self.0, AccessControlError::BadRoleUsage); //@audit-issue write rule to catch this
         }
 
         let key = self.get_key(role);
@@ -45,6 +46,9 @@ impl SingleAddressManagementTrait for AccessControl {
     }
 
     fn set_role_address(&self, role: &Role, address: &Address) {
+        //@audit added
+        // clog!("has many users", role.has_many_users());
+        //@audit added
         if role.has_many_users() {
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
@@ -52,7 +56,7 @@ impl SingleAddressManagementTrait for AccessControl {
         // require delay if address is being replaced.
         // don't require delay if role is being set for the first time
         let addr = self.get_role_safe(role);
-        if addr.is_some() && role.is_transfer_delayed() {
+        if addr.is_some() && role.is_transfer_delayed() { //@audit-issue can not be used to change roles if they are set and have delay. Check where this is used and if this can be an issue.
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 

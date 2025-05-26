@@ -3,9 +3,12 @@ use crate::errors::AccessControlError;
 use crate::role::Role;
 use soroban_sdk::{contracttype, panic_with_error};
 
-#[derive(Clone)]
+// #[derive(Clone)] //@audit added to be able to compare enums
+#[derive(Clone, PartialEq, Eq)]
 #[contracttype]
-pub(crate) enum DataKey {
+
+// pub(crate) enum DataKey { //@audit made public
+pub enum DataKey {
     Admin,           // owner - upgrade, set privileged roles
     EmergencyAdmin,  // emergency admin - put system into emergency mode, allowing instant upgrade
     Operator,        // rewards admin - configure rewards. legacy name cannot be changed
@@ -25,7 +28,8 @@ pub(crate) enum DataKey {
     EmergencyMode,
 }
 
-pub(crate) trait StorageTrait {
+// pub(crate) trait StorageTrait //@audit  made public
+pub trait StorageTrait {
     fn get_key(&self, role: &Role) -> DataKey;
     fn get_future_key(&self, role: &Role) -> DataKey;
     fn get_future_deadline_key(&self, role: &Role) -> DataKey;
@@ -40,7 +44,6 @@ impl StorageTrait for AccessControl {
             Role::OperationsAdmin => DataKey::OperationsAdmin,
             Role::PauseAdmin => DataKey::PauseAdmin,
             Role::EmergencyPauseAdmin => DataKey::EmPauseAdmins, 
-            //i: why is there no panic_with_error here => should revert if wrong role is given
         }
     }
 

@@ -22,7 +22,7 @@ impl Role {
         match self {
             Role::Admin => false,
             Role::EmergencyAdmin => false,
-            Role::RewardsAdmin => false,
+            Role::RewardsAdmin => true, //@audit-issue changed true to false
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
             Role::EmergencyPauseAdmin => true, 
