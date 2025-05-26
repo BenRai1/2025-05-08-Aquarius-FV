@@ -30,21 +30,8 @@ use cvlr::log::cvlr_log;
 
     
     
-     // set_role_address(): works for EmergancyAdmin if not set
-    #[rule]
-    fn set_role_address_works_for_emergancy_admin_if_not_set(e: Env, role: Role, address: Address) { //@audit-issue mutation deos not work even though it works for Admin
-        //assume role is EmergencyAdmin
-        cvlr_assume!(role == Role::EmergencyAdmin);
-        //assume the address is not set
-        let current_address = util::get_role_address_any_safe(&role);
-        cvlr_assume!(current_address.is_none());
-        //call
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_address(&role, &address);
-        // get the address
-        let role_address = util::get_role_address_any_safe(&role);
-        cvlr_satisfy!(role_address == Some(address));
-    }
+
+    
     
 
 
@@ -350,7 +337,7 @@ use cvlr::log::cvlr_log;
         cvlr_assert!(false); // should not reach and therefore should pass
     }
 
-     // get_future_address(): returns the set address if there is no transfer scheduled
+    // get_future_address(): returns the set address if there is no transfer scheduled
     #[rule]
     fn get_future_address_returns_set_address_if_no_transfer_scheduled(e: Env, role_name: Symbol) {
         //get the address
@@ -367,7 +354,6 @@ use cvlr::log::cvlr_log;
         //make sure the address is the same
         cvlr_assert!(future_address == address);
         // cvlr_satisfy!(true);
-
     }
     
     // get_future_address(): returns the future address if shedule is set 
@@ -379,6 +365,26 @@ use cvlr::log::cvlr_log;
         let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone());
         //make suer the address is the same
         cvlr_assert!(future_address == new_address);
+    }
+
+    // get_future_address(): must work for Admin
+    #[rule]
+    fn get_future_address_works_for_admin(e: Env, role_name: Symbol) {
+        //assume the role is Admin
+        cvlr_assume!(role_name == Symbol::new(&e, "Admin"));
+        //get the address
+        let role = Role::from_symbol(&e, role_name.clone());
+        let address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(address.is_some());
+        let address = address.unwrap();
+        //make sure that the transfer_ownership_deadline is 0
+        let access_control = AccessControl::new(&e);
+        let deadline = access_control.get_transfer_ownership_deadline(&role);
+        cvlr_assume!(deadline == 0);
+        //call get_future_address
+        let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone());
+        //make sure the address is the same
+        cvlr_satisfy!(future_address == address);
     }
 
     // commit_transfer_ownership(): sets future_admin to new_address
@@ -1057,6 +1063,21 @@ use cvlr::log::cvlr_log;
         cvlr_satisfy!(true);
     }
 
-
+    // set_role_address(): works for EmergancyAdmin if not set
+    #[rule]
+    fn set_role_address_works_for_emergancy_admin_if_not_set(e: Env, role: Role, address: Address) { //@audit-issue PASSES but mutation deos not work even though it works for Admin
+        //assume role is EmergencyAdmin
+        cvlr_assume!(role == Role::EmergencyAdmin);
+        //assume the address is not set
+        let current_address = util::get_role_address_any_safe(&role);
+        cvlr_assume!(current_address.is_none());
+        //call
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_address(&role, &address);
+        // get the address
+        let role_address = util::get_role_address_any_safe(&role);
+        cvlr_satisfy!(role_address == Some(address));
+    }
+    
 
 //------------------------------- RULES PROBLEMS END ----------------------------------
