@@ -22,7 +22,7 @@ impl Role {
         match self {
             Role::Admin => false,
             Role::EmergencyAdmin => false,
-            Role::RewardsAdmin => true, //@audit-issue changed true to false
+            Role::RewardsAdmin => false, 
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
             Role::EmergencyPauseAdmin => true, 
@@ -34,7 +34,7 @@ impl Role {
         match self {
             Role::Admin => true,
             Role::EmergencyAdmin => true,
-            Role::RewardsAdmin => false, //@audit-issue make sure to write rules to catch change here
+            Role::RewardsAdmin => false, 
             Role::OperationsAdmin => false,
             Role::PauseAdmin => false,
             Role::EmergencyPauseAdmin => false, 
@@ -55,7 +55,7 @@ impl SymbolRepresentation for Role {
             Role::RewardsAdmin => Symbol::new(&e, "RewardsAdmin"),
             Role::OperationsAdmin => Symbol::new(&e, "OperationsAdmin"),
             Role::PauseAdmin => Symbol::new(&e, "PauseAdmin"), 
-            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"), //i: will panic when no match
+            Role::EmergencyPauseAdmin => Symbol::new(&e, "EmergencyPauseAdmin"),
         }
     }
 

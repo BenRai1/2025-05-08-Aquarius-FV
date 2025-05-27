@@ -115,7 +115,7 @@ impl UpgradeableContract for FeesCollector {
             to enable assigning to a ghost variable for verification.
          */
         let access_control = AccessControl::new(&e);
-        #[cfg(feature = "certora")]
+        #[cfg(feature = "certora")] //i: added by certora
         unsafe {
             ACCESS_CONTROL = Some(access_control.clone());
         }

@@ -1317,6 +1317,7 @@ dependencies = [
  "cvlr-soroban-macros",
  "soroban-sdk",
  "upgrade",
+ "utils",
 ]
 
 [[package]]

@@ -25,17 +25,35 @@ use access_control::storage::StorageTrait;
 use upgrade::constants::UPGRADE_DELAY;
 use soroban_sdk::Symbol;
 use cvlr::log::cvlr_log;
+#[cfg(feature = "certora")]
+use utils::bump::GHOST_BUMP_COUNTER;
+use cvlr_soroban::is_auth;
+
 
 //------------------------------- RULES TEST START ----------------------------------
 
+    //test bump
+    #[rule]
+    fn bump_works(e: Env) { //@audit-issue can be set here but does not change when bump is called. Why is that? Asked Chandra
+        // Initialize ghost state
+        unsafe {
+            GHOST_BUMP_COUNTER = 0;
+        }
+        //access control
+        let access_control = AccessControl::new(&e);
+        access_control.get_transfer_ownership_deadline(&Role::Admin);
+        unsafe {
+            let new_counter = GHOST_BUMP_COUNTER;
+            cvlr_satisfy!(new_counter > 0);
+        }
+    }
+
     
-    
+
+
 
     
     
-
-
-
    
     
 
@@ -49,6 +67,70 @@ use cvlr::log::cvlr_log;
 
 //------------------------------- RULES OK START ------------------------------------
     
+    
+    // commit_transfer_ownership(): reverts if caller is not adminAddress (require_auth())
+    #[rule]
+    fn commit_transfer_ownership_reverts_if_not_admin(e: Env, admin: Address, role_name: Symbol, new_address: Address) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::commit_transfer_ownership(e, admin, role_name, new_address);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // apply_transfer_ownership(): reverts if caller is not adminAddress require_auth()
+    #[rule]
+    fn apply_transfer_ownership_reverts_if_not_admin(e: Env, admin: Address, role_name: Symbol) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::apply_transfer_ownership(e, admin, role_name);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // revert_transfer_ownership(): reverts if caller is not adminAddress require_auth()
+    #[rule]
+    fn revert_transfer_ownership_reverts_if_not_admin(e: Env, admin: Address, role_name: Symbol) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::revert_transfer_ownership(e, admin, role_name);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
+    // commit_upgrade(): reverts if caller is not adminAddress (require_auth())
+    #[rule]
+    fn commit_upgrade_reverts_if_admin_not_auth(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::commit_upgrade(e, admin, new_wasm_hash);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // apply_upgrade(): reverts if caller is not adminAddress (require_auth())
+    #[rule]
+    fn apply_upgrade_reverts_if_admin_not_auth(e: Env, admin: Address) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::apply_upgrade(e, admin);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // revert_upgrade(): reverts if caller is not adminAddress (require_auth())
+    #[rule]
+    fn revert_upgrade_reverts_if_admin_not_auth(e: Env, admin: Address) {
+        //assume the admin did not authorize this call
+        cvlr_assume!(!is_auth(admin.clone()));
+        FeesCollector::revert_upgrade(e, admin);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+    
+    // set_emergency_mode(): reverts if caller is not emergancy_adminAddress require_auth()
+    #[rule]
+    fn set_emergency_mode_reverts_if_not_emergency_admin(e: Env, emergency_admin: Address, value: bool) {
+        //assume the emergency_admin did not authorize this call
+        cvlr_assume!(!is_auth(emergency_admin.clone()));
+        FeesCollector::set_emergency_mode(e, emergency_admin, value);
+        cvlr_assert!(false); // should not reach and therefore should pass
+    }
+
     // apply_upgrade(): returns new_wasm_hash
     #[rule]
     fn apply_upgrade_returns_new_wasm(e: Env, admin: Address) {

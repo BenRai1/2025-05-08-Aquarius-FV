@@ -16,3 +16,4 @@ soroban-sdk = { workspace = true }
 [features]
 default = []
 testutils = []
+certora = [] 

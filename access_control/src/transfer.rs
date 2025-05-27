@@ -19,7 +19,7 @@ pub trait TransferOwnershipTrait {
 impl TransferOwnershipTrait for AccessControl {
     fn get_transfer_ownership_deadline(&self, role: &Role) -> u64 {
         let key = self.get_future_deadline_key(role);
-        bump_instance(&self.0); //@audit why is the instance bumped here even though we do not set anything?
+        bump_instance(&self.0);
         self.0.storage().instance().get(&key).unwrap_or(0)
     }
 

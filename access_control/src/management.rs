@@ -46,9 +46,6 @@ impl SingleAddressManagementTrait for AccessControl {
     }
 
     fn set_role_address(&self, role: &Role, address: &Address) {
-        //@audit added
-        // clog!("has many users", role.has_many_users());
-        //@audit added
         if role.has_many_users() {
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
