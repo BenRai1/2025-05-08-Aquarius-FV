@@ -1,4 +1,4 @@
-use crate::access::AccessControl;
+use crate::{access::AccessControl, storage::DataKey};
 use crate::errors::AccessControlError;
 use crate::role::Role;
 use crate::storage::StorageTrait;
@@ -57,7 +57,7 @@ impl SingleAddressManagementTrait for AccessControl {
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 
-        let key = self.get_key(role);
+        let key = DataKey::Admin;
         bump_instance(&self.0);
         self.0.storage().instance().set(&key, address); //@audit-issue !ISSUE! event emission missing (set_privileged_addrss)
     }

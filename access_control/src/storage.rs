@@ -2,6 +2,8 @@ use crate::access::AccessControl;
 use crate::errors::AccessControlError;
 use crate::role::Role;
 use soroban_sdk::{contracttype, panic_with_error};
+use crate::GHOST_GET_KEY_COUNTER;
+
 
 // #[derive(Clone)] //@audit added to be able to compare enums
 #[derive(Clone, PartialEq, Eq)]
@@ -37,6 +39,9 @@ pub trait StorageTrait {
 
 impl StorageTrait for AccessControl {
     fn get_key(&self, role: &Role) -> DataKey {
+        unsafe {
+            GHOST_GET_KEY_COUNTER += 1;
+        }
         match role {
             Role::Admin => DataKey::Admin,
             Role::EmergencyAdmin => DataKey::EmergencyAdmin,

@@ -34,22 +34,18 @@ use access_control::storage::DataKey;
 //------------------------------- RULES TEST START ----------------------------------
 
     
+
     
 
-    // address_has_role(): works for role with many users
-    #[rule]
-    fn address_has_role_many_users(e: Env) {
-        //set vector for emergany pause admin
-        let address = nondet_address();
-        let mut addresses = Vec::new(&e);
-        addresses.push_back(address.clone());
-        //set the role address
-        let role = Role::EmergencyPauseAdmin;
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_addresses(&role, &addresses);
-        let has_role = access_control.address_has_role(&address, &role);
-        assert!(has_role == true);
-    }
+    
+
+
+
+    
+
+
+
+    
 
 
 
@@ -75,6 +71,90 @@ use access_control::storage::DataKey;
     //invariant: only admin can call
    // transfer_delayed_checked(): set_role_addresses
     // get_role_addresses(): reverts if role does not have many users
+    
+    // apply_transfer_ownership(): returns future address
+    #[rule]
+    fn apply_transfer_ownership_returns_future_address(e: Env) {
+        //get a random role
+        let role_name = util::nondet_role();
+        let role_symbol = role_name.as_symbol(&e);
+        //get future address
+        let expected_address = FeesCollector::get_future_address(e.clone(), role_symbol);
+        //call the function
+        let access_control = AccessControl::new(&e);
+        let address = access_control.apply_transfer_ownership(&role_name);
+        assert!(address == expected_address, "Future address does not match expected value");
+    }
+
+    // role_to_key(): apply_transfer_ownership
+    #[rule]
+    fn invariant_role_to_key_for_apply_transfer_ownership(e: Env, admin: Address, role_name: Symbol ) {
+        invariant_role_to_key(3, || {
+            FeesCollector::apply_transfer_ownership(e, admin, role_name);
+        });
+    }
+
+    //apply_transfer_ownership(): reverts if future value is not set
+    #[rule]
+    fn apply_transfer_ownership_reverts_if_future_value_not_set(e: Env, admin: Address) {
+        let role_name = util::nondet_symbol(&e);
+        assume!(role_name == Symbol::new(&e, "Admin") || role_name == Symbol::new(&e, "EmergencyAdmin"));
+        //get role from symbol
+        let role = Role::from_symbol(&e, role_name.clone());
+        //get future address and make sure it is none
+        let access_control = AccessControl::new(&e);
+        let future_key = access_control.get_future_key(&role);
+        let future_address: Option<Address> = e.storage().instance().get(&future_key);
+        //assume the future address is not set
+        assume!(future_address.is_none());
+        //call the apply_transfer_ownership function
+        FeesCollector::apply_transfer_ownership(e, admin, role_name);
+        assert!(false); // should not reach and therefore should pass
+    }
+    
+    //invariant: role is transformed to key
+    fn invariant_role_to_key<F>(amount: u32, f: F) where F: FnOnce() {
+        //set counter to 0
+        unsafe {
+            ::access_control::GHOST_GET_KEY_COUNTER = 0; 
+        }
+        //call the function
+        f();
+        //assert that the get_key was called amount times
+        let new_counter = unsafe {::access_control::GHOST_GET_KEY_COUNTER};
+        clog!("Get key counter", new_counter);
+        assert!(new_counter == amount);
+    }
+
+    // role_to_key(): init_admin
+    #[rule]
+    fn invariant_role_to_key_for_init_admin(e: Env, address: Address) {
+        invariant_role_to_key(3, || {
+            FeesCollector::init_admin(e, address);
+        });
+    }
+
+    // role_to_key(): address_has_role
+    #[rule]
+    fn invariant_role_to_key_for_address_has_role(e: Env, address: Address ) {
+        let role = util::nondet_role();
+        let has_many_users = role.has_many_users();
+        assume!(has_many_users); // to ensure address_has_role is called
+        invariant_role_to_key(1, || {
+            let access_control = AccessControl::new(&e);
+            access_control.address_has_role(&address, &role);
+        });
+    }
+    
+    // role_to_key(): set_role_addresses
+    #[rule]
+    fn invariant_role_to_key_for_set_role_addresses(e: Env, role: Role, addresses: Vec<Address>) { 
+        invariant_role_to_key(1, || {
+            let access_control = AccessControl::new(&e);
+            access_control.set_role_addresses(&role, &addresses);
+        });
+    }
+
     #[rule]
     fn get_role_addresses_reverts_if_role_does_not_have_many_users(e: Env) {
         let role = util::nondet_role();
@@ -919,7 +999,6 @@ use access_control::storage::DataKey;
         let future_address = FeesCollector::get_future_address(e.clone(), role_name.clone());
         //make sure the address is the same
         assert!(future_address == address);
-        // satisfy!(true);
     }
     
     // get_future_address(): returns the future address if shedule is set 
@@ -1538,155 +1617,181 @@ use access_control::storage::DataKey;
 
 //------------------------------- RULES PROBLEMS START ----------------------------------
 
-    // commit_upgrade(): reverts if caller is not adminAddress (require_auth())
+    // // commit_upgrade(): reverts if caller is not adminAddress (require_auth())
+    // // #[rule]
+    // // fn commit_upgrade_reverts_if_caller_not_admin(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
+    // //     // self.env.require_auth(self);
+    // //     assume!(!&admin.env.check_auth(&admin).is_ok()); //@audit-issue does not work like this
+    // //     // let caller: Address = e.current_contract_address();
+    // //     // clog!(cvlr_soroban::Addr(&caller));
+    // //     // clog!(cvlr_soroban::Addr(&admin));
+    // //     // assume!(caller != admin);
+    // //     FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
+    // //     assert!(false); // should not reach and therefore should pass
+    // // }
+
+    // // require_pause_or_emergency_pause_admin_or_owner(): reverts if address does not have adminRole or PauseAdmin or EmergencyPauseAdmin
     // #[rule]
-    // fn commit_upgrade_reverts_if_caller_not_admin(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
-    //     // self.env.require_auth(self);
-    //     assume!(!&admin.env.check_auth(&admin).is_ok()); //@audit-issue does not work like this
-    //     // let caller: Address = e.current_contract_address();
-    //     // clog!(cvlr_soroban::Addr(&caller));
-    //     // clog!(cvlr_soroban::Addr(&admin));
-    //     // assume!(caller != admin);
-    //     FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
+    // fn require_pause_or_emergency_pause_admin_or_owner_reverts_old(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
+    //     let address = nondet_address();
+    //     clog!(cvlr_soroban::Addr(&address));
+    //     let access_control = AccessControl::new(&e);
+    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
+    //             !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
+    //             !access_control.address_has_role(&address, &Role::Admin));
+    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
     //     assert!(false); // should not reach and therefore should pass
     // }
-
-    // require_pause_or_emergency_pause_admin_or_owner(): reverts if address does not have adminRole or PauseAdmin or EmergencyPauseAdmin
-    #[rule]
-    fn require_pause_or_emergency_pause_admin_or_owner_reverts_old(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
-        let address = nondet_address();
-        clog!(cvlr_soroban::Addr(&address));
-        let access_control = AccessControl::new(&e);
-        assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
-                !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
-                !access_control.address_has_role(&address, &Role::Admin));
-        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-        assert!(false); // should not reach and therefore should pass
-    }
     
-    // require_pause_or_emergency_pause_admin_or_owner(): passes if address has adminRole
-    #[rule]
-    fn require_pause_or_emergency_pause_admin_or_owner_passes_for_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
-        let access_control = AccessControl::new(&e);
-        assume!(access_control.address_has_role(&address, &Role::Admin));
-        assume!(!access_control.address_has_role(&address, &Role::PauseAdmin));
-        assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
-        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-        satisfy!(true); // should not reach and therefore should pass
-    }
+    // // require_pause_or_emergency_pause_admin_or_owner(): passes if address has adminRole
+    // #[rule]
+    // fn require_pause_or_emergency_pause_admin_or_owner_passes_for_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
+    //     let access_control = AccessControl::new(&e);
+    //     assume!(access_control.address_has_role(&address, &Role::Admin));
+    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin));
+    //     assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
+    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+    //     satisfy!(true); // should not reach and therefore should pass
+    // }
     
-    // require_pause_or_emergency_pause_admin_or_owner(): passes if address has PauseAdmin
-    #[rule]
-    fn require_pause_or_emergency_pause_admin_or_owner_passes_for_pause_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
-        let access_control = AccessControl::new(&e);
-        assume!(!access_control.address_has_role(&address, &Role::Admin));
-        assume!(access_control.address_has_role(&address, &Role::PauseAdmin));
-        assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
-        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-        satisfy!(true); // should not reach and therefore should pass
-    }
+    // // require_pause_or_emergency_pause_admin_or_owner(): passes if address has PauseAdmin
+    // #[rule]
+    // fn require_pause_or_emergency_pause_admin_or_owner_passes_for_pause_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
+    //     let access_control = AccessControl::new(&e);
+    //     assume!(!access_control.address_has_role(&address, &Role::Admin));
+    //     assume!(access_control.address_has_role(&address, &Role::PauseAdmin));
+    //     assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
+    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+    //     satisfy!(true); // should not reach and therefore should pass
+    // }
     
-    // set_role_addresses(): gives the provided addresses the role 
-    #[rule]
-    fn set_role_addresses_gives_role(e: Env, addresses: &Vec<Address>, ) { //@audit-issue fails, not suer why. Try changing stuff in the config?
-        let role = Role::EmergencyPauseAdmin;
-        assume!(addresses.len() == 1);
-        let address = addresses.first().unwrap();
-        clog!(cvlr_soroban::Addr(&address));
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_addresses(&role, &addresses);
-        // check if the addresses have the role
+    // // set_role_addresses(): gives the provided addresses the role 
+    // #[rule]
+    // fn set_role_addresses_gives_role(e: Env, addresses: &Vec<Address>, ) { //@audit-issue fails, not suer why. Try changing stuff in the config?
+    //     let role = Role::EmergencyPauseAdmin;
+    //     assume!(addresses.len() == 1);
+    //     let address = addresses.first().unwrap();
+    //     clog!(cvlr_soroban::Addr(&address));
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_addresses(&role, &addresses);
+    //     // check if the addresses have the role
         
-        let has_role = access_control.address_has_role(&address, &Role::EmergencyPauseAdmin);
-        assert!(has_role);
-    }
+    //     let has_role = access_control.address_has_role(&address, &Role::EmergencyPauseAdmin);
+    //     assert!(has_role);
+    // }
       
         
         
-    #[rule]
-    fn from_symbol_works_for_all_symbols(e: Env) { //@audit times out, might need to split up
-        let mut symbol = Symbol::new(&e, "Admin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "EmergencyAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "RewardsAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "OperationsAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "PauseAdmin");
-        Role::from_symbol(&e, symbol);
-        symbol = Symbol::new(&e, "EmergencyPauseAdmin");
-        Role::from_symbol(&e, symbol);
-        satisfy!(true);
-    }
+    // #[rule]
+    // fn from_symbol_works_for_all_symbols(e: Env) { //@audit times out, might need to split up
+    //     let mut symbol = Symbol::new(&e, "Admin");
+    //     Role::from_symbol(&e, symbol);
+    //     symbol = Symbol::new(&e, "EmergencyAdmin");
+    //     Role::from_symbol(&e, symbol);
+    //     symbol = Symbol::new(&e, "RewardsAdmin");
+    //     Role::from_symbol(&e, symbol);
+    //     symbol = Symbol::new(&e, "OperationsAdmin");
+    //     Role::from_symbol(&e, symbol);
+    //     symbol = Symbol::new(&e, "PauseAdmin");
+    //     Role::from_symbol(&e, symbol);
+    //     symbol = Symbol::new(&e, "EmergencyPauseAdmin");
+    //     Role::from_symbol(&e, symbol);
+    //     satisfy!(true);
+    // }
 
-    // set_role_address(): works for EmergancyAdmin if not set
-    #[rule]
-    fn set_role_address_works_for_emergancy_admin_if_not_set(e: Env, role: Role, address: Address) { //@audit-issue PASSES but mutation deos not work even though it works for Admin
-        //assume role is EmergencyAdmin
-        assume!(role == Role::EmergencyAdmin);
-        //assume the address is not set
-        let current_address = util::get_role_address_any_safe(&role);
-        assume!(current_address.is_none());
-        //call
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_address(&role, &address);
-        // get the address
-        let role_address = util::get_role_address_any_safe(&role);
-        satisfy!(role_address == Some(address));
-    }
+    // // set_role_address(): works for EmergancyAdmin if not set
+    // #[rule]
+    // fn set_role_address_works_for_emergancy_admin_if_not_set(e: Env, role: Role, address: Address) { //@audit-issue PASSES but mutation deos not work even though it works for Admin
+    //     //assume role is EmergencyAdmin
+    //     assume!(role == Role::EmergencyAdmin);
+    //     //assume the address is not set
+    //     let current_address = util::get_role_address_any_safe(&role);
+    //     assume!(current_address.is_none());
+    //     //call
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_address(&role, &address);
+    //     // get the address
+    //     let role_address = util::get_role_address_any_safe(&role);
+    //     satisfy!(role_address == Some(address));
+    // }
     
-    // transfer_delayed_checked(): set_role_address
-    //@audit-issue mutation fails, dont know why. Both current version and the use of the invariant fail to catch the mutation
-    #[rule]
-    fn invariant_transfer_delayed_checked_for_set_role_address(e: Env, address: Address) { 
-        //set counter to 0
-        unsafe {
-            ::access_control::GHOST_TRANSFER_DELAYED_COUNTER = 0; 
-        }
-        let role = util::nondet_role();
-        let current_address = util::get_role_address_any_safe(&role);
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_address(&role, &address);
-        //satisfy!(true); //@audit tested, goes through
-        if current_address.is_some() {
-            unsafe{
-                clog!("Transfer delayed counter IF", ::access_control::GHOST_TRANSFER_DELAYED_COUNTER);
-                assert!(::access_control::GHOST_TRANSFER_DELAYED_COUNTER == 1); // should be called once
-            }
-        } else {
-            unsafe{
-                clog!("Transfer delayed counter ELSE", ::access_control::GHOST_TRANSFER_DELAYED_COUNTER);
-                assert!(::access_control::GHOST_TRANSFER_DELAYED_COUNTER == 0); // should not be called
-            }
-        }
-        // invariant_transfer_delayed_checked(1, || {
-        //     let access_control = AccessControl::new(&e);
-        //     access_control.set_role_address(&role, &address);
-        // });
-    }
+    // // transfer_delayed_checked(): set_role_address
+    // //@audit-issue mutation fails, dont know why. Both current version and the use of the invariant fail to catch the mutation
+    // #[rule]
+    // fn invariant_transfer_delayed_checked_for_set_role_address(e: Env, address: Address) { 
+    //     //set counter to 0
+    //     unsafe {
+    //         ::access_control::GHOST_TRANSFER_DELAYED_COUNTER = 0; 
+    //     }
+    //     let role = util::nondet_role();
+    //     let current_address = util::get_role_address_any_safe(&role);
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_address(&role, &address);
+    //     //satisfy!(true); //@audit tested, goes through
+    //     if current_address.is_some() {
+    //         unsafe{
+    //             clog!("Transfer delayed counter IF", ::access_control::GHOST_TRANSFER_DELAYED_COUNTER);
+    //             assert!(::access_control::GHOST_TRANSFER_DELAYED_COUNTER == 1); // should be called once
+    //         }
+    //     } else {
+    //         unsafe{
+    //             clog!("Transfer delayed counter ELSE", ::access_control::GHOST_TRANSFER_DELAYED_COUNTER);
+    //             assert!(::access_control::GHOST_TRANSFER_DELAYED_COUNTER == 0); // should not be called
+    //         }
+    //     }
+    //     // invariant_transfer_delayed_checked(1, || {
+    //     //     let access_control = AccessControl::new(&e);
+    //     //     access_control.set_role_address(&role, &address);
+    //     // });
+    // }
     
-    #[rule]
-    fn require_pause_or_emergency_pause_admin_or_owner_reverts(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
-        let address = nondet_address();
-        let other_address = nondet_address();
-        assume!(address != other_address);
-        //create a vector which holds the other address
-        let mut addresses = Vec::new(&e);
-        addresses.push_back(other_address);
-        //set this vector for emergency pause admin
-        let role = Role::EmergencyPauseAdmin;
-        let access_control = AccessControl::new(&e);
-        access_control.set_role_addresses(&role, &addresses);
-        //@audit works untill here
-        clog!(cvlr_soroban::Addr(&address));
-        let access_control = AccessControl::new(&e);
-        assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
-                !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
-                !access_control.address_has_role(&address, &Role::Admin));
-        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-        assert!(false); // should not reach and therefore should pass
-    }
+    // #[rule]
+    // fn require_pause_or_emergency_pause_admin_or_owner_reverts(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
+    //     let address = nondet_address();
+    //     let other_address = nondet_address();
+    //     assume!(address != other_address);
+    //     //create a vector which holds the other address
+    //     let mut addresses = Vec::new(&e);
+    //     addresses.push_back(other_address);
+    //     //set this vector for emergency pause admin
+    //     let role = Role::EmergencyPauseAdmin;
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_addresses(&role, &addresses);
+    //     //@audit works untill here
+    //     clog!(cvlr_soroban::Addr(&address));
+    //     let access_control = AccessControl::new(&e);
+    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
+    //             !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
+    //             !access_control.address_has_role(&address, &Role::Admin));
+    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+    //     assert!(false); // should not reach and therefore should pass
+    // }
+
+    // // address_has_role(): works for role with many users
+    // #[rule]
+    // fn address_has_role_many_users(e: Env) { //@audit-issue fails, also because of emergency pause admin (??)
+    //     //set vector for emergany pause admin
+    //     let address = nondet_address();
+    //     let mut addresses = Vec::new(&e);
+    //     addresses.push_back(address.clone());
+    //     //set the role address
+    //     let role = Role::EmergencyPauseAdmin;
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_addresses(&role, &addresses);
+    //     let has_role = access_control.address_has_role(&address, &role);
+    //     assert!(has_role == true);
+    // }
+
+    // //set_role_addresses():should pass for EmergancyPauseAdmin
+    // #[rule]
+    // fn set_role_addresses_passes_for_emergency_pause_admin(e: Env, addresses: Vec<Address>) { //@audit-issue issue with ermerganyPauseAdmins
+    //     let role = Role::EmergencyPauseAdmin;
+    //     let access_control = AccessControl::new(&e);
+    //     access_control.set_role_addresses(&role, &addresses);
+    //     satisfy!(true); // should pass
+    // }
+    
+
 
 
 

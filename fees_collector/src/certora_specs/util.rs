@@ -9,6 +9,7 @@ use access_control::management::SingleAddressManagementTrait;
 use access_control::access::AccessControlTrait;
 use access_control::role::Role;
 use access_control::storage::DataKey;
+use access_control::transfer::TransferOwnershipTrait;
 
 
 use crate::certora_specs::ACCESS_CONTROL;
@@ -18,6 +19,12 @@ use crate::certora_specs::ACCESS_CONTROL;
         let acc_ctrl = unsafe { &mut *&raw mut ACCESS_CONTROL };
         return acc_ctrl.as_ref().unwrap().get_role_safe(role);
     }
+
+    // // function to get the future address safe
+    // pub fn get_future_role_address_safe(role: &Role) -> Option<Address> {
+    //     let acc_ctrl = unsafe { &mut *&raw mut ACCESS_CONTROL };
+    //     acc_ctrl.as_ref().and_then(|ctrl| ctrl.get_future_address(role))
+    // }
 
     //get the enum index of the role
     pub fn get_index_for_role(role: &Role) -> i64 {
