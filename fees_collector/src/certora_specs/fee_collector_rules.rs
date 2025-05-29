@@ -29,12 +29,12 @@ use soroban_sdk::Symbol;
 use cvlr::log::cvlr_log;
 use cvlr_soroban::is_auth;
 use access_control::storage::DataKey;
+use upgrade::storage::get_upgrade_deadline;
 
 
 //------------------------------- RULES TEST START ----------------------------------
 
-    
-
+   
     
 
     
@@ -72,6 +72,24 @@ use access_control::storage::DataKey;
    // transfer_delayed_checked(): set_role_addresses
     // get_role_addresses(): reverts if role does not have many users
     
+
+    // commit_upgrade(): must work
+    #[rule]
+    fn commit_upgrade_must_work(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
+        //admin did authorization
+        assume!(is_auth(admin.clone()));
+        //admin has admin role
+        let role = Role::Admin;
+        let access_control = AccessControl::new(&e);
+        assume!(access_control.address_has_role(&admin, &role));
+        //upgrade deadline is not set
+        let upgrade_deadline = get_upgrade_deadline(&e);
+        assume!(upgrade_deadline == 0, "Upgrade deadline is not zero, another action is active");
+        //call the function
+        FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
+        satisfy!(true, "Commit upgrade did not work as expected");
+    }
+
     // apply_transfer_ownership(): returns future address
     #[rule]
     fn apply_transfer_ownership_returns_future_address(e: Env) {
@@ -1791,6 +1809,8 @@ use access_control::storage::DataKey;
     //     satisfy!(true); // should pass
     // }
     
+
+
 
 
 
