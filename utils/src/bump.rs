@@ -4,15 +4,12 @@ use crate::constant::{
 };
 use soroban_sdk::{Env, IntoVal, Val};
 
-pub static mut GHOST_BUMP_COUNTER: i64 = 0; //i: added for certora testing
+use crate::GHOST_BUMP_COUNTER; 
 
 pub fn bump_instance(e: &Env) {
-    #[cfg(feature = "certora")]
-    {
         unsafe {
             GHOST_BUMP_COUNTER += 1;
         }
-    }
 
     e.storage()
         .instance()

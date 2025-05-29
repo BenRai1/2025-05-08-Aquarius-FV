@@ -13,6 +13,8 @@ pub mod storage;
 // #[cfg(feature = "certora")]
 // pub mod storage;
 
+pub static mut GHOST_EVENT_COUNTER: u32 = 0; //i: added for certora
+
 use crate::constants::UPGRADE_DELAY;
 use crate::errors::Error;
 use crate::storage::{

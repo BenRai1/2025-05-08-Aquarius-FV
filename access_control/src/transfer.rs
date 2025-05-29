@@ -6,6 +6,7 @@ use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address};
 use utils::bump::bump_instance;
 use utils::storage_errors::StorageError;
+use crate::GHOST_TRANSFER_DEADLINE_COUNTER;
 
 pub trait TransferOwnershipTrait {
     fn get_transfer_ownership_deadline(&self, role: &Role) -> u64;
@@ -18,6 +19,9 @@ pub trait TransferOwnershipTrait {
 
 impl TransferOwnershipTrait for AccessControl {
     fn get_transfer_ownership_deadline(&self, role: &Role) -> u64 {
+        unsafe {
+            GHOST_TRANSFER_DEADLINE_COUNTER += 1;
+        }
         let key = self.get_future_deadline_key(role);
         bump_instance(&self.0);
         self.0.storage().instance().get(&key).unwrap_or(0)

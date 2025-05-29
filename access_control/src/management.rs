@@ -59,7 +59,7 @@ impl SingleAddressManagementTrait for AccessControl {
 
         let key = self.get_key(role);
         bump_instance(&self.0);
-        self.0.storage().instance().set(&key, address);
+        self.0.storage().instance().set(&key, address); //@audit-issue !ISSUE! event emission missing (set_privileged_addrss)
     }
 
 }
@@ -71,8 +71,6 @@ impl MultipleAddressesManagementTrait for AccessControl {
         }
 
         let key = self.get_key(role);
-        //i: bump instance to  updating its expiration ledger sequence. 
-        // => this prevents the contract from being garbage collected
         bump_instance(&self.0); 
         self.0
             .storage()

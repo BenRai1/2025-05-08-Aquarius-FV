@@ -1,4 +1,9 @@
 use crate::errors::AccessControlError;
+// #[cfg(feature = "certora")]
+use crate::GHOST_TRANSFER_DELAYED_COUNTER;
+use crate::GHOST_HAS_MANY_USERS_COUNTER;
+use crate::GHOST_FROM_SYMBOL_COUNTER;
+
 use soroban_sdk::{panic_with_error, Env, Symbol};
 
 // #[cfg(not(feature = "certora"))]
@@ -6,6 +11,7 @@ use soroban_sdk::{panic_with_error, Env, Symbol};
 
 // #[cfg(feature = "certora")]
 #[derive(Clone, PartialEq)]
+
 
 pub enum Role {
     Admin,
@@ -19,6 +25,9 @@ pub enum Role {
 impl Role {
     // pub(crate) fn has_many_users(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
     pub fn has_many_users(&self) -> bool { 
+        unsafe {
+            GHOST_HAS_MANY_USERS_COUNTER += 1;
+        }
         match self {
             Role::Admin => false,
             Role::EmergencyAdmin => false,
@@ -31,6 +40,9 @@ impl Role {
 
     pub fn is_transfer_delayed(&self) -> bool { 
     // pub(crate) fn is_transfer_delayed(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
+        unsafe {
+            GHOST_TRANSFER_DELAYED_COUNTER += 1;
+        }
         match self {
             Role::Admin => true,
             Role::EmergencyAdmin => true,
@@ -60,6 +72,9 @@ impl SymbolRepresentation for Role {
     }
 
     fn from_symbol(e: &Env, value: Symbol) -> Self {
+        unsafe {
+            GHOST_FROM_SYMBOL_COUNTER += 1;
+        }
         if value == Symbol::new(e, "Admin") {
             return Role::Admin;
         } else if value == Symbol::new(e, "EmergencyAdmin") {

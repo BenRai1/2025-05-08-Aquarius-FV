@@ -8,6 +8,7 @@ use soroban_sdk::Symbol;
 use access_control::management::SingleAddressManagementTrait;
 use access_control::access::AccessControlTrait;
 use access_control::role::Role;
+use access_control::storage::DataKey;
 
 
 use crate::certora_specs::ACCESS_CONTROL;
@@ -28,6 +29,23 @@ use crate::certora_specs::ACCESS_CONTROL;
             Role::PauseAdmin => 4,
             Role::EmergencyPauseAdmin => 5,
             _ => panic!("Invalid role number"),
+        }
+    }
+
+    //get the key based on a role
+    pub fn get_key_for_role(role: &Role) -> DataKey {
+        if role == &Role::Admin{
+            DataKey::Admin
+        } else if role == &Role::EmergencyAdmin {
+            DataKey::EmergencyAdmin
+        } else if role == &Role::RewardsAdmin {
+            DataKey::Operator
+        } else if role == &Role::OperationsAdmin {
+            DataKey::OperationsAdmin
+        } else if role == &Role::PauseAdmin {
+            DataKey::PauseAdmin
+        } else {
+            DataKey::EmPauseAdmins
         }
     }
 
