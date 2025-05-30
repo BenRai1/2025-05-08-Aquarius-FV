@@ -1,4 +1,5 @@
 use access_control::constants::ADMIN_ACTIONS_DELAY;
+use access_control::emergency;
 use soroban_sdk::{Address, Env, Vec, BytesN};
 // use soroban_sdk::Env;
 
@@ -34,11 +35,9 @@ use upgrade::storage::get_upgrade_deadline;
 
 //------------------------------- RULES TEST START ----------------------------------
 
-   
+   //USE GHOST TO BYPASS THE RESTRICTIONS WITH THE VECTROS
     
-
     
-
 
 
     
@@ -71,6 +70,59 @@ use upgrade::storage::get_upgrade_deadline;
     //invariant: only admin can call
    // transfer_delayed_checked(): set_role_addresses
     // get_role_addresses(): reverts if role does not have many users
+    
+    // require_pause_or_emergency_pause_admin_or_owner(): reverts if address does not have adminRole or PauseAdmin or EmergencyPauseAdmin
+    #[rule]
+    fn require_pause_or_emergency_pause_admin_or_owner_reverts(e: Env) { //@audit-issue works when #[cfg(feature = "certora")] is not used
+        let emergency_pause_admin = nondet_address();
+        clog!(cvlr_soroban::Addr(&emergency_pause_admin));
+        unsafe{
+            ::access_control::GHOST_EMERGANCY_PAUSE_ADMIN = Some(emergency_pause_admin.clone());
+        }
+        let address = nondet_address();
+        clog!(cvlr_soroban::Addr(&address));
+        let access_control = AccessControl::new(&e);
+        assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
+                emergency_pause_admin != address &&
+                !access_control.address_has_role(&address, &Role::Admin));
+        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+        assert!(false); // should not reach and therefore should pass
+    }
+
+    // require_pause_or_emergency_pause_admin_or_owner(): passes if address has adminRole
+    #[rule]
+    fn require_pause_or_emergency_pause_admin_or_owner_passes_for_admin(e: Env, address: Address) { //@audit-issue works when #[cfg(feature = "certora")] is not used
+        let access_control = AccessControl::new(&e);
+        assume!(access_control.address_has_role(&address, &Role::Admin));
+        assume!(!access_control.address_has_role(&address, &Role::PauseAdmin));
+        assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
+        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+        satisfy!(true); // should not reach and therefore should pass
+    }
+    
+    // require_pause_or_emergency_pause_admin_or_owner(): passes if address has PauseAdmin
+    #[rule]
+    fn require_pause_or_emergency_pause_admin_or_owner_passes_for_pause_admin(e: Env, address: Address) { //@audit-issue works when #[cfg(feature = "certora")] is not used
+        let access_control = AccessControl::new(&e);
+        assume!(!access_control.address_has_role(&address, &Role::Admin));
+        assume!(access_control.address_has_role(&address, &Role::PauseAdmin));
+        assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
+        access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
+        satisfy!(true); // should not reach and therefore should pass
+    }
+
+    //set_role_addresses():should pass for EmergancyPauseAdmin
+    #[rule]
+    fn set_role_addresses_passes_for_emergency_pause_admin(e: Env, addresses: Vec<Address>) {
+        //set vector for emergany pause admin
+        let address = nondet_address();
+        let mut addresses = Vec::new(&e);
+        addresses.push_back(address.clone());
+        let role = Role::EmergencyPauseAdmin;
+        let access_control = AccessControl::new(&e);
+        access_control.set_role_addresses(&role, &addresses);
+        satisfy!(true); // should pass
+    }
     
 
     // commit_upgrade(): must work
@@ -541,7 +593,7 @@ use upgrade::storage::get_upgrade_deadline;
         f();
         //assert that the bump_instance is called amount times
         let new_counter = unsafe {::utils::GHOST_BUMP_COUNTER};
-        clog!("Bump counter", new_counter);
+        // clog!("Bump counter", new_counter);
         assert!(new_counter == amount);
     }
 
@@ -737,7 +789,7 @@ use upgrade::storage::get_upgrade_deadline;
         satisfy!(role_address == Some(address));
     }
 
-    //set_role_address(): always works for OperationsAdmin //@audit continnue here!!
+    //set_role_address(): always works for OperationsAdmin
     #[rule]
     fn set_role_address_works_for_operations_admin(e: Env, role: Role, address: Address) {
         //assume the address is already set
@@ -1238,7 +1290,7 @@ use upgrade::storage::get_upgrade_deadline;
         let access_control = AccessControl::new(&e);
         let admin_role = Role::Admin;
         assume!(role == Role::Admin);
-        let is_set = access_control.get_role_safe(&admin_role).is_some(); //@audit-issue might not take the right access_control
+        let is_set = access_control.get_role_safe(&admin_role).is_some();
         assume!(is_set == false);
         access_control.get_role(&role);
         assert!(false); // should not reach and therefore should pass
@@ -1525,7 +1577,7 @@ use upgrade::storage::get_upgrade_deadline;
         let deadline = upgrade::storage::get_upgrade_deadline(&e);
         assume!(deadline == 0);
         FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
-        let deadline = upgrade::storage::get_upgrade_deadline(&e); //@audit this should fail since this uses the orignal Env
+        let deadline = upgrade::storage::get_upgrade_deadline(&e);
         let traget_deadline = e.ledger().timestamp() + UPGRADE_DELAY;
         assert!(deadline == traget_deadline);
     }
@@ -1635,57 +1687,10 @@ use upgrade::storage::get_upgrade_deadline;
 
 //------------------------------- RULES PROBLEMS START ----------------------------------
 
-    // // commit_upgrade(): reverts if caller is not adminAddress (require_auth())
-    // // #[rule]
-    // // fn commit_upgrade_reverts_if_caller_not_admin(e: Env, admin: Address, new_wasm_hash: BytesN<32>) {
-    // //     // self.env.require_auth(self);
-    // //     assume!(!&admin.env.check_auth(&admin).is_ok()); //@audit-issue does not work like this
-    // //     // let caller: Address = e.current_contract_address();
-    // //     // clog!(cvlr_soroban::Addr(&caller));
-    // //     // clog!(cvlr_soroban::Addr(&admin));
-    // //     // assume!(caller != admin);
-    // //     FeesCollector::commit_upgrade(e.clone(), admin, new_wasm_hash);
-    // //     assert!(false); // should not reach and therefore should pass
-    // // }
-
-    // // require_pause_or_emergency_pause_admin_or_owner(): reverts if address does not have adminRole or PauseAdmin or EmergencyPauseAdmin
-    // #[rule]
-    // fn require_pause_or_emergency_pause_admin_or_owner_reverts_old(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
-    //     let address = nondet_address();
-    //     clog!(cvlr_soroban::Addr(&address));
-    //     let access_control = AccessControl::new(&e);
-    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
-    //             !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
-    //             !access_control.address_has_role(&address, &Role::Admin));
-    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-    //     assert!(false); // should not reach and therefore should pass
-    // }
-    
-    // // require_pause_or_emergency_pause_admin_or_owner(): passes if address has adminRole
-    // #[rule]
-    // fn require_pause_or_emergency_pause_admin_or_owner_passes_for_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
-    //     let access_control = AccessControl::new(&e);
-    //     assume!(access_control.address_has_role(&address, &Role::Admin));
-    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin));
-    //     assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
-    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-    //     satisfy!(true); // should not reach and therefore should pass
-    // }
-    
-    // // require_pause_or_emergency_pause_admin_or_owner(): passes if address has PauseAdmin
-    // #[rule]
-    // fn require_pause_or_emergency_pause_admin_or_owner_passes_for_pause_admin(e: Env, address: Address) { //@audit-issue also fails, reason will be the same as above (EmergencyPauseAdmin)
-    //     let access_control = AccessControl::new(&e);
-    //     assume!(!access_control.address_has_role(&address, &Role::Admin));
-    //     assume!(access_control.address_has_role(&address, &Role::PauseAdmin));
-    //     assume!(!access_control.address_has_role(&address, &Role::EmergencyPauseAdmin));
-    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-    //     satisfy!(true); // should not reach and therefore should pass
-    // }
     
     // // set_role_addresses(): gives the provided addresses the role 
     // #[rule]
-    // fn set_role_addresses_gives_role(e: Env, addresses: &Vec<Address>, ) { //@audit-issue fails, not suer why. Try changing stuff in the config?
+    // fn set_role_addresses_gives_role(e: Env, addresses: &Vec<Address>, ) { //@audit-issue fails becasue of vector usage
     //     let role = Role::EmergencyPauseAdmin;
     //     assume!(addresses.len() == 1);
     //     let address = addresses.first().unwrap();
@@ -1698,24 +1703,6 @@ use upgrade::storage::get_upgrade_deadline;
     //     assert!(has_role);
     // }
       
-        
-        
-    // #[rule]
-    // fn from_symbol_works_for_all_symbols(e: Env) { //@audit times out, might need to split up
-    //     let mut symbol = Symbol::new(&e, "Admin");
-    //     Role::from_symbol(&e, symbol);
-    //     symbol = Symbol::new(&e, "EmergencyAdmin");
-    //     Role::from_symbol(&e, symbol);
-    //     symbol = Symbol::new(&e, "RewardsAdmin");
-    //     Role::from_symbol(&e, symbol);
-    //     symbol = Symbol::new(&e, "OperationsAdmin");
-    //     Role::from_symbol(&e, symbol);
-    //     symbol = Symbol::new(&e, "PauseAdmin");
-    //     Role::from_symbol(&e, symbol);
-    //     symbol = Symbol::new(&e, "EmergencyPauseAdmin");
-    //     Role::from_symbol(&e, symbol);
-    //     satisfy!(true);
-    // }
 
     // // set_role_address(): works for EmergancyAdmin if not set
     // #[rule]
@@ -1745,7 +1732,6 @@ use upgrade::storage::get_upgrade_deadline;
     //     let current_address = util::get_role_address_any_safe(&role);
     //     let access_control = AccessControl::new(&e);
     //     access_control.set_role_address(&role, &address);
-    //     //satisfy!(true); //@audit tested, goes through
     //     if current_address.is_some() {
     //         unsafe{
     //             clog!("Transfer delayed counter IF", ::access_control::GHOST_TRANSFER_DELAYED_COUNTER);
@@ -1763,27 +1749,6 @@ use upgrade::storage::get_upgrade_deadline;
     //     // });
     // }
     
-    // #[rule]
-    // fn require_pause_or_emergency_pause_admin_or_owner_reverts(e: Env) { //@audit-issue fails, not sure why: issue is with the emergancy pause admin (multiple users for EmergencyPauseAdmin?)
-    //     let address = nondet_address();
-    //     let other_address = nondet_address();
-    //     assume!(address != other_address);
-    //     //create a vector which holds the other address
-    //     let mut addresses = Vec::new(&e);
-    //     addresses.push_back(other_address);
-    //     //set this vector for emergency pause admin
-    //     let role = Role::EmergencyPauseAdmin;
-    //     let access_control = AccessControl::new(&e);
-    //     access_control.set_role_addresses(&role, &addresses);
-    //     //@audit works untill here
-    //     clog!(cvlr_soroban::Addr(&address));
-    //     let access_control = AccessControl::new(&e);
-    //     assume!(!access_control.address_has_role(&address, &Role::PauseAdmin) &&
-    //             !access_control.address_has_role(&address, &Role::EmergencyPauseAdmin) &&
-    //             !access_control.address_has_role(&address, &Role::Admin));
-    //     access_control::utils::require_pause_or_emergency_pause_admin_or_owner(&e, &address);
-    //     assert!(false); // should not reach and therefore should pass
-    // }
 
     // // address_has_role(): works for role with many users
     // #[rule]
@@ -1800,14 +1765,7 @@ use upgrade::storage::get_upgrade_deadline;
     //     assert!(has_role == true);
     // }
 
-    // //set_role_addresses():should pass for EmergancyPauseAdmin
-    // #[rule]
-    // fn set_role_addresses_passes_for_emergency_pause_admin(e: Env, addresses: Vec<Address>) { //@audit-issue issue with ermerganyPauseAdmins
-    //     let role = Role::EmergencyPauseAdmin;
-    //     let access_control = AccessControl::new(&e);
-    //     access_control.set_role_addresses(&role, &addresses);
-    //     satisfy!(true); // should pass
-    // }
+    
     
 
 

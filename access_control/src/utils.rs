@@ -23,7 +23,7 @@ pub fn require_pause_or_emergency_pause_admin_or_owner(e: &Env, address: &Addres
     let access_control = AccessControl::new(e);
     let _ = 
             access_control.address_has_role(address, &Role::PauseAdmin) || 
-            access_control.address_has_role(address, &Role::EmergencyPauseAdmin) ||  //@audit-issue issue in this line (multiple users)
+            access_control.address_has_role(address, &Role::EmergencyPauseAdmin) ||
             access_control.address_has_role(address, &Role::Admin)  ||  //i: admin is the owner
             panic_with_error!(e, AccessControlError::Unauthorized);
 }

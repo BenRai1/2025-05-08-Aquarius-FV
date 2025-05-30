@@ -2,6 +2,7 @@ use crate::errors::AccessControlError;
 use crate::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
 use crate::role::Role;
 use soroban_sdk::{panic_with_error, Address, Env};
+use crate::GHOST_EMERGANCY_PAUSE_ADMIN;
 
 
 #[derive(Clone)]
@@ -21,7 +22,13 @@ pub trait AccessControlTrait {
 impl AccessControlTrait for AccessControl {
     fn address_has_role(&self, address: &Address, role: &Role) -> bool {
         if role.has_many_users() {
-            self.get_role_addresses(role).contains(address)
+            // #[cfg(feature = "certora")]
+            //compare with GHOST_EMERGANCY_PAUSE_ADMIN
+            unsafe{
+                GHOST_EMERGANCY_PAUSE_ADMIN == Some(address.clone())
+            }
+            // #[cfg(not(feature = "certora"))]
+            // self.get_role_addresses(role).contains(address)
         } else {
             match self.get_role_safe(role) {
                 Some(role_address) => address == &role_address,

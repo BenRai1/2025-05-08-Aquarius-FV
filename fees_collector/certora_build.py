@@ -13,7 +13,7 @@ COMMAND = "just build"
 
 # JSON FIELDS
 PROJECT_DIR = (SCRIPT_DIR / "../").resolve()
-SOURCES = ["fees_collector/**/*.rs", "access_control/**/*.rs"]
+SOURCES = ["fees_collector/**/*.rs", "access_control/**/*.rs", "utils/**/*.rs"]
 EXECUTABLES = "target/wasm32-unknown-unknown/release/soroban_fees_collector_contract.wasm"
 
 VERBOSE = False

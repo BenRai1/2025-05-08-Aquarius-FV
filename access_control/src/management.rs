@@ -4,7 +4,7 @@ use crate::role::Role;
 use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address, Vec};
 use utils::bump::bump_instance;
-// use cvlr::{clog, cvlr_satisfy, nondet};//@audit added for certora
+use crate::GHOST_EMERGANCY_PAUSE_ADMIN;
 
 pub trait SingleAddressManagementTrait {
     fn get_role_safe(&self, role: &Role) -> Option<Address>;
@@ -20,7 +20,7 @@ pub trait MultipleAddressesManagementTrait {
 impl SingleAddressManagementTrait for AccessControl {
     fn get_role_safe(&self, role: &Role) -> Option<Address> {
         if role.has_many_users() {
-            panic_with_error!(&self.0, AccessControlError::BadRoleUsage); //@audit-issue write rule to catch this
+            panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 
         let key = self.get_key(role);
@@ -53,7 +53,7 @@ impl SingleAddressManagementTrait for AccessControl {
         // require delay if address is being replaced.
         // don't require delay if role is being set for the first time
         let addr = self.get_role_safe(role);
-        if addr.is_some() && role.is_transfer_delayed() { //@audit-issue can not be used to change roles if they are set and have delay. Check where this is used and if this can be an issue.
+        if addr.is_some() && role.is_transfer_delayed() {
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 
@@ -81,13 +81,16 @@ impl MultipleAddressesManagementTrait for AccessControl {
 
     // no delay-related code as we require it only for single addresses roles
     fn set_role_addresses(&self, role: &Role, addresses: &Vec<Address>) {
-        if !role.has_many_users() || role.is_transfer_delayed() { //@audit-issue I dont have a rule which would chatch changes here because there is only one role (checkncloaser)
+        if !role.has_many_users() || role.is_transfer_delayed() { 
             panic_with_error!(&self.0, AccessControlError::BadRoleUsage);
         }
 
         let key = self.get_key(role);
         bump_instance(&self.0);
-        self.0.storage().instance().set(&key, addresses);
+        unsafe {
+            GHOST_EMERGANCY_PAUSE_ADMIN = addresses.get(0);
+        }
+        self.0.storage().instance().set(&key, addresses); //audit can not test for this with the ghost
     }
     
 }

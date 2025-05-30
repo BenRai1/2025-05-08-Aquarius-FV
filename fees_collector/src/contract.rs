@@ -26,7 +26,6 @@ impl AdminInterface for FeesCollector {
     // # Arguments
     //
     // * `account` - The address of the admin user.
-    //@audit any restrictions who can call this? 
     //i: can only be called once since then, the admin is set and it will revert
 
     fn init_admin(e: Env, account: Address) {

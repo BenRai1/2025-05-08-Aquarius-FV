@@ -5,11 +5,11 @@ use soroban_sdk::{contracttype, panic_with_error};
 use crate::GHOST_GET_KEY_COUNTER;
 
 
-// #[derive(Clone)] //@audit added to be able to compare enums
+// #[derive(Clone)] //audit added to be able to compare enums
 #[derive(Clone, PartialEq, Eq)]
 #[contracttype]
 
-// pub(crate) enum DataKey { //@audit made public
+// pub(crate) enum DataKey { //i: made public
 pub enum DataKey {
     Admin,           // owner - upgrade, set privileged roles
     EmergencyAdmin,  // emergency admin - put system into emergency mode, allowing instant upgrade
@@ -30,7 +30,7 @@ pub enum DataKey {
     EmergencyMode,
 }
 
-// pub(crate) trait StorageTrait //@audit  made public
+// pub(crate) trait StorageTrait //i:  made public
 pub trait StorageTrait {
     fn get_key(&self, role: &Role) -> DataKey;
     fn get_future_key(&self, role: &Role) -> DataKey;

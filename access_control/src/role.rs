@@ -23,7 +23,7 @@ pub enum Role {
 }
 
 impl Role {
-    // pub(crate) fn has_many_users(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
+    // pub(crate) fn has_many_users(&self) -> bool { //audit #[cfg(not(feature = "certora"))] does not work
     pub fn has_many_users(&self) -> bool { 
         unsafe {
             GHOST_HAS_MANY_USERS_COUNTER += 1;
@@ -39,7 +39,7 @@ impl Role {
     }
 
     pub fn is_transfer_delayed(&self) -> bool { 
-    // pub(crate) fn is_transfer_delayed(&self) -> bool { //@audit changed, #[cfg(not(feature = "certora"))] does not work
+    // pub(crate) fn is_transfer_delayed(&self) -> bool { //audit #[cfg(not(feature = "certora"))] does not work
         unsafe {
             GHOST_TRANSFER_DELAYED_COUNTER += 1;
         }

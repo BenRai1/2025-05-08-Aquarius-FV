@@ -7,6 +7,7 @@ use soroban_sdk::{Env, IntoVal, Val};
 use crate::GHOST_BUMP_COUNTER; 
 
 pub fn bump_instance(e: &Env) {
+    // #[cfg(feature = "certora")]
         unsafe {
             GHOST_BUMP_COUNTER += 1;
         }

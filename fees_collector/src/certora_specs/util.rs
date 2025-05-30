@@ -147,7 +147,7 @@ use crate::certora_specs::ACCESS_CONTROL;
     } 
 
     //generate randome role in scope
-    pub fn nondet_role() -> Role { //@audit returns the right role
+    pub fn nondet_role() -> Role { 
         let random_number: i64 = cvlr::nondet();
         let role_index = random_number % 6;
         match role_index {
