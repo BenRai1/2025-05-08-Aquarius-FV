@@ -1,8 +1,6 @@
 use crate::errors::AccessControlError;
-// #[cfg(feature = "certora")]
-use crate::GHOST_TRANSFER_DELAYED_COUNTER;
-use crate::GHOST_HAS_MANY_USERS_COUNTER;
-use crate::GHOST_FROM_SYMBOL_COUNTER;
+#[cfg(feature = "certora")]
+use crate::{GHOST_TRANSFER_DELAYED_COUNTER, GHOST_HAS_MANY_USERS_COUNTER, GHOST_FROM_SYMBOL_COUNTER};
 
 use soroban_sdk::{panic_with_error, Env, Symbol};
 
@@ -24,7 +22,8 @@ pub enum Role {
 
 impl Role {
     // pub(crate) fn has_many_users(&self) -> bool { //audit #[cfg(not(feature = "certora"))] does not work
-    pub fn has_many_users(&self) -> bool { 
+    pub fn has_many_users(&self) -> bool {
+        #[cfg(feature = "certora")] 
         unsafe {
             GHOST_HAS_MANY_USERS_COUNTER += 1;
         }
@@ -39,7 +38,8 @@ impl Role {
     }
 
     pub fn is_transfer_delayed(&self) -> bool { 
-    // pub(crate) fn is_transfer_delayed(&self) -> bool { //audit #[cfg(not(feature = "certora"))] does not work
+    // pub(crate) fn is_transfer_delayed(&self) -> bool { 
+        #[cfg(feature = "certora")]
         unsafe {
             GHOST_TRANSFER_DELAYED_COUNTER += 1;
         }
@@ -72,6 +72,7 @@ impl SymbolRepresentation for Role {
     }
 
     fn from_symbol(e: &Env, value: Symbol) -> Self {
+        #[cfg(feature = "certora")]
         unsafe {
             GHOST_FROM_SYMBOL_COUNTER += 1;
         }

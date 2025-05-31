@@ -4,6 +4,7 @@ use crate::role::Role;
 use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address, Vec};
 use utils::bump::bump_instance;
+#[cfg(feature = "certora")]
 use crate::GHOST_EMERGANCY_PAUSE_ADMIN;
 
 pub trait SingleAddressManagementTrait {
@@ -59,7 +60,7 @@ impl SingleAddressManagementTrait for AccessControl {
 
         let key = self.get_key(role);
         bump_instance(&self.0);
-        self.0.storage().instance().set(&key, address); //@audit-issue !ISSUE! event emission missing (set_privileged_addrss)
+        self.0.storage().instance().set(&key, address); //i: no event missing since it is emitted when this is called in bulk outside of a constructor (set_privileged_addrs)
     }
 
 }
@@ -87,6 +88,7 @@ impl MultipleAddressesManagementTrait for AccessControl {
 
         let key = self.get_key(role);
         bump_instance(&self.0);
+        #[cfg(feature = "certora")]
         unsafe {
             GHOST_EMERGANCY_PAUSE_ADMIN = addresses.get(0);
         }

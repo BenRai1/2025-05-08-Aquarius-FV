@@ -2,6 +2,7 @@ use crate::access::AccessControl;
 use crate::errors::AccessControlError;
 use crate::role::Role;
 use soroban_sdk::{contracttype, panic_with_error};
+#[cfg(feature = "certora")]
 use crate::GHOST_GET_KEY_COUNTER;
 
 
@@ -39,6 +40,7 @@ pub trait StorageTrait {
 
 impl StorageTrait for AccessControl {
     fn get_key(&self, role: &Role) -> DataKey {
+        #[cfg(feature = "certora")]
         unsafe {
             GHOST_GET_KEY_COUNTER += 1;
         }

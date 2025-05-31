@@ -6,6 +6,7 @@ use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address};
 use utils::bump::bump_instance;
 use utils::storage_errors::StorageError;
+#[cfg(feature = "certora")]
 use crate::GHOST_TRANSFER_DEADLINE_COUNTER;
 
 pub trait TransferOwnershipTrait {
@@ -19,6 +20,7 @@ pub trait TransferOwnershipTrait {
 
 impl TransferOwnershipTrait for AccessControl {
     fn get_transfer_ownership_deadline(&self, role: &Role) -> u64 {
+        #[cfg(feature = "certora")]
         unsafe {
             GHOST_TRANSFER_DEADLINE_COUNTER += 1;
         }

@@ -593,7 +593,7 @@ use upgrade::storage::get_upgrade_deadline;
         f();
         //assert that the bump_instance is called amount times
         let new_counter = unsafe {::utils::GHOST_BUMP_COUNTER};
-        // clog!("Bump counter", new_counter);
+        clog!("Bump counter", new_counter);
         assert!(new_counter == amount);
     }
 

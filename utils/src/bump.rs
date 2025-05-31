@@ -4,10 +4,11 @@ use crate::constant::{
 };
 use soroban_sdk::{Env, IntoVal, Val};
 
+#[cfg(feature = "certora")]
 use crate::GHOST_BUMP_COUNTER; 
 
 pub fn bump_instance(e: &Env) {
-    // #[cfg(feature = "certora")]
+    #[cfg(feature = "certora")]
         unsafe {
             GHOST_BUMP_COUNTER += 1;
         }
