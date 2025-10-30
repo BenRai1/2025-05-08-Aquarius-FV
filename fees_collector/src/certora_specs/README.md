@@ -9,4 +9,4 @@ The goal of the formal verification part of the competition was to formally veri
 | All files in the [fees_collector](https://github.com/BenRai1/2025-05-08-Aquarius-FV/tree/main/fees_collector) crate |
 | All files in the [access_control](https://github.com/BenRai1/2025-05-08-Aquarius-FV/tree/main/access_control) crate |
 
-I wrote a total of [136 rules](https://github.com/BenRai1/2025-05-08-Aquarius-FV/blob/main/fees_collector/src/certora_specs/fee_collector_rules.rs) and managed to catch 22 out of 22 mutations used for [evaluating the submissions](https://docs.google.com/spreadsheets/d/1fNR_A6-KsWLqw1SI9RhE_O_gi3aU8ehvWzCIYJ9MZAA/edit?gid=1970712821#gid=1970712821) which placed me 3rd in the FV contest.
+I wrote a total of [136 rules](https://github.com/BenRai1/2025-05-08-Aquarius-FV/blob/main/fees_collector/src/certora_specs/fee_collector_rules.rs) and managed to catch 24 out of 24 mutations used for [evaluating the submissions](https://docs.google.com/spreadsheets/d/1fNR_A6-KsWLqw1SI9RhE_O_gi3aU8ehvWzCIYJ9MZAA/edit?gid=1970712821#gid=1970712821) which placed me 3rd in the FV contest.
